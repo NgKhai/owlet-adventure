@@ -2,9 +2,10 @@ import Phaser from 'phaser';
 import type { Rect } from './collision.ts';
 import { readLevel, type LevelData } from './level.ts';
 import { Enemy, type EnemyHooks } from './enemy.ts';
-import { ObjectManager, type GameObject, type Projectile } from './objects.ts';
+import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
+import { canHandleClick, canHandleKey, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -43,7 +44,7 @@ class GameScene extends Phaser.Scene {
   private playerSpawn?: { x: number; y: number };
   private levelIndex = 0;
   private playerDying = false;
-  private overlay: 'none' | 'pause' | 'gameOver' | 'levelCompleted' | 'gameCompleted' = 'none';
+  private overlay: PlayingOverlay = 'none';
   private overlayItems: Phaser.GameObjects.GameObject[] = [];
   private musicMuted = false;
   private effectsMuted = false;
@@ -60,7 +61,19 @@ class GameScene extends Phaser.Scene {
   private rainImages: Phaser.GameObjects.Image[] = [];
   private dialogue = new DialogueEffects();
   private dialogueImages = new Map<DialogueEffect, Phaser.GameObjects.Image>();
-  private keys!: { A: Phaser.Input.Keyboard.Key; D: Phaser.Input.Keyboard.Key; SPACE: Phaser.Input.Keyboard.Key };
+  private playingSteps: PlayingSteps = {
+    dialogue: () => this.dialogue.update(),
+    rain: () => this.rain.update(this.offset),
+    level: () => { if (++this.waterTick >= 40) { this.waterTick = 0; this.waterFrame = (this.waterFrame + 1) % 4; } },
+    objects: () => {
+      for (const tree of this.trees) if (++tree.tick >= 35) { tree.tick = 0; tree.frame = (tree.frame + 1) % 4; }
+      this.objects.update(this.level.tiles, this.player.box, this.character.tileY, damage => this.character.changeHealth(-damage));
+    },
+    player: () => this.character.update(this.playerHooks()),
+    enemies: () => this.updateEnemies(),
+    camera: () => this.updateCamera(),
+    ship: () => this.updateShip(),
+  };
 
   private get player() { return this.character.movement; }
   private get animation() { return this.character.animation; }
@@ -94,7 +107,14 @@ class GameScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.keys = this.input.keyboard!.addKeys('A,D,SPACE') as typeof this.keys;
+    for (const [key, field] of [['A', 'left'], ['D', 'right'], ['SPACE', 'jump']] as const) {
+      this.input.keyboard!.on(`keydown-${key}`, () => {
+        if (canHandleKey(this.mode === 'playing', this.overlay)) this.player[field] = true;
+      });
+      this.input.keyboard!.on(`keyup-${key}`, () => {
+        if (canHandleKey(this.mode === 'playing', this.overlay)) this.player[field] = false;
+      });
+    }
     this.textures.get('volume_buttons').add('slider', 0, 84, 0, 215, 44);
     for (let i = 0; i < 3; i++) this.textures.get('volume_buttons').add(`knob${i}`, 0, i * 28, 0, 28, 44);
     this.input.keyboard!.on('keydown-ESC', () => {
@@ -104,10 +124,10 @@ class GameScene extends Phaser.Scene {
       }
     });
     this.input.keyboard!.on('keyup-ESC', () => { if (this.mode === 'credits') this.showMenuFromScreen(true); });
-    this.game.events.on('blur', () => { if (this.mode === 'playing') { this.keys.A.reset(); this.keys.D.reset(); } });
+    this.game.events.on('blur', () => { if (this.mode === 'playing') { this.player.left = false; this.player.right = false; } });
     this.game.canvas.addEventListener('contextmenu', event => event.preventDefault());
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (this.mode !== 'playing' || this.overlay !== 'none') return;
+      if (!canHandleClick(this.mode === 'playing', this.overlay)) return;
       if (pointer.button === 0) this.animation.attacking = true;
       else if (pointer.button === 2) this.character.powerAttack();
     });
@@ -138,7 +158,7 @@ class GameScene extends Phaser.Scene {
           if (i === 0) this.startPlaying();
           else if (i === 1) this.showOptions();
           else if (i === 2) this.showCredits();
-          else window.close();
+          else { this.game.destroy(true); window.close(); }
           return;
         }
         pressed = false;
@@ -281,7 +301,7 @@ class GameScene extends Phaser.Scene {
       if (tile === 48) this.water.push(image);
     }));
     for (const grass of this.level.grass) {
-      const image = this.image(grass.x, grass.y, 'grass', grass.type).setScale(2).setDepth(21);
+      const image = this.image(grass.x, grass.y, 'grass', grass.type).setScale(2).setDepth(25);
       image.setData('worldX', grass.x);
       this.worldItems.push(image);
     }
@@ -309,9 +329,9 @@ class GameScene extends Phaser.Scene {
       }
       this.treeLevels.set(this.levelIndex, this.trees);
     }
-    this.worldItems.push(this.image(20, 20, 'health_power_bar').setDisplaySize(384, 116).setDepth(60));
-    this.healthBar = this.add.rectangle(88, 48, 300, 8, 0xff0000).setOrigin(0).setDepth(60);
-    this.powerBar = this.add.rectangle(108, 88, 208, 4, 0xffff00).setOrigin(0).setDepth(60);
+    this.worldItems.push(this.image(20, 20, 'health_power_bar').setDisplaySize(384, 116).setDepth(41));
+    this.healthBar = this.add.rectangle(88, 48, 300, 8, 0xff0000).setOrigin(0).setDepth(41);
+    this.powerBar = this.add.rectangle(108, 88, 208, 4, 0xffff00).setOrigin(0).setDepth(41);
     if (playMusic) this.playSong(this.levelIndex % 2 === 0 ? 'levelMusic' : 'levelMusic2');
   }
 
@@ -331,92 +351,8 @@ class GameScene extends Phaser.Scene {
     this.accumulated += delta;
     while (this.accumulated >= 5) {
       this.accumulated -= 5;
-      this.player.left = this.keys.A.isDown;
-      this.player.right = this.keys.D.isDown;
-      this.player.jump = this.keys.SPACE.isDown;
-      if (++this.powerTick >= 15) { this.powerTick = 0; this.power = Math.min(200, this.power + 1); }
-      if (this.playerDying) {
-        if (this.animation.updateDeath()) { this.song?.stop(); this.playEffect('gameover'); this.showOverlay('gameOver'); break; }
-        this.updateDeathFall();
-        continue;
-      }
-      this.dialogue.update();
-      if (this.drawRain) this.rain.update(this.offset);
-      this.objects.update(this.level.tiles, this.player.box, this.playerTileY, damage => this.damagePlayer(damage));
-      for (const tree of this.trees) if (++tree.tick >= 35) { tree.tick = 0; tree.frame = (tree.frame + 1) % 4; }
-      if (this.health <= 0) {
-        this.playerDying = true;
-        this.animation.updateDeath();
-        this.playEffect('die');
-        if (!isEntityOnFloor(this.player.box, this.level.tiles)) { this.player.inAir = true; this.player.airSpeed = 0; }
-      } else {
-      if (this.player.left && this.player.right) {
-        this.attackBox.x = this.player.flip === 1 ? this.player.box.x + this.player.box.width - 10 : this.player.box.x - this.player.box.width - 20;
-      } else if (this.player.right || (this.player.powerAttackActive && this.player.flip === 1))
-        this.attackBox.x = this.player.box.x + this.player.box.width - 10;
-      else if (this.player.left || (this.player.powerAttackActive && this.player.flip === -1))
-        this.attackBox.x = this.player.box.x - this.player.box.width - 20;
-      this.attackBox.y = this.player.box.y + 20;
-      if (this.animation.state === 5) this.player.updateHit(this.animation.index);
-      else {
-        if (this.player.jump && !this.player.inAir) this.playEffect('jump');
-        this.player.update();
-      }
-      if (this.player.moving && this.player.powerAttackActive && ++this.player.powerAttackTick >= 35) {
-        this.player.powerAttackTick = 0;
-        this.player.powerAttackActive = false;
-      }
-      if (this.player.moving) {
-        this.objects.checkPotions(this.player.box, type => {
-          if (type === 0) this.health = Math.min(100, this.health + 15);
-          else this.power = Math.min(200, this.power + 10);
-        });
-        if (this.objects.touchesSpikes(this.player.box)) this.health = 0;
-        const b = this.player.box, y = Math.trunc((b.y + b.height) / 64);
-        if (this.level.tiles[y][Math.trunc(b.x / 64)] === 48 || this.level.tiles[y][Math.trunc((b.x + b.width) / 64)] === 48) this.health = 0;
-        this.playerTileY = Math.trunc(b.y / 64);
-      }
-      if ((this.animation.attacking || this.player.powerAttackActive) && !this.animation.attackChecked && this.animation.index === 1) {
-        this.animation.attackChecked = !this.player.powerAttackActive;
-        for (const { enemy } of this.enemies) {
-          if (!enemy.active) continue;
-          if (enemy.type === 1 && enemy.state === 2 && enemy.index >= 3) break;
-          const a = this.attackBox, b = enemy.box;
-          if (enemy.state !== 3 && enemy.state !== 4 && a.x + a.width > b.x && b.x + b.width > a.x && a.y + a.height > b.y && b.y + b.height > a.y) {
-            enemy.hurt(20); break;
-          }
-        }
-        this.objects.checkHit(this.attackBox);
-        this.playEffect(`attack${1 + Math.floor(Math.random() * 3)}`);
-      }
-      this.animation.update(this.player.moving, this.player.inAir, this.player.airSpeed, this.player.powerAttackActive, () => {
-        this.player.recoverFromHit();
-        return { inAir: this.player.inAir, airSpeed: this.player.airSpeed };
-      });
-      }
-      const hooks: EnemyHooks = {
-        hitPlayer: (damage, enemy) => this.damagePlayer(damage, enemy.box.x),
-        onSpikes: enemy => { if (this.objects.touchesSpikes(enemy.box)) enemy.hurt(200); },
-        dialogue: (x, y, type) => this.dialogue.add(x, y, type),
-      };
-      let anyActive = false;
-      for (const { enemy } of this.enemies) if (enemy.active) { enemy.update(this.level.tiles, this.player.box, hooks); anyActive = true; }
-      if (!anyActive) {
-        this.song?.stop(); this.playEffect('lvlcompleted');
-        if (this.levelIndex === 4) {
-          this.clearPlaying(); this.levelIndex = 0; this.startPlaying(false); this.showOverlay('gameCompleted');
-        } else this.showOverlay('levelCompleted');
-        break;
-      }
-      const diff = Math.trunc(this.player.box.x) - this.offset;
-      if (diff > 1248) this.offset += diff - 1248;
-      else if (diff < 416) this.offset += diff - 416;
-      this.offset = Math.max(Math.min(this.offset, this.level.offset), 0);
-      if (++this.waterTick >= 40) { this.waterTick = 0; this.waterFrame = (this.waterFrame + 1) % 4; }
-      if (++this.shipTick >= 35) { this.shipTick = 0; this.shipFrame = (this.shipFrame + 1) % 4; }
-      this.shipY = Math.max(0, Math.min(20, Math.fround(this.shipY + Math.fround(0.1 * this.shipDir))));
-      if (this.shipY === 0) this.shipDir = 1;
-      else if (this.shipY === 20) this.shipDir = -1;
+      updatePlaying(this.playerDying, this.drawRain, this.playingSteps);
+      if (this.overlay !== 'none') break;
     }
     for (const item of this.worldItems) if (item instanceof Phaser.GameObjects.Image && item.getData('worldX') !== undefined)
       item.x = item.getData('worldX') - this.offset;
@@ -426,8 +362,8 @@ class GameScene extends Phaser.Scene {
     this.ship.setPosition(200 - this.offset, Math.trunc(576 + this.shipY)).setFrame(this.shipFrame);
     this.playerImage.setPosition(Math.trunc(this.player.box.x - 42) - this.offset, Math.trunc(this.player.box.y - 8 + Math.trunc(this.player.pushDrawOffset)))
       .setFrame(this.animation.state * 8 + this.animation.index).setFlipX(this.player.flip === -1);
-    this.healthBar.width = Math.trunc(this.health / 100 * 300);
-    this.powerBar.width = Math.trunc(this.power / 200 * 208);
+    this.healthBar.width = this.character.healthWidth;
+    this.powerBar.width = this.character.powerWidth;
     this.renderObjects();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
     for (const effect of this.dialogue.items) {
@@ -449,13 +385,64 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  private updateDeathFall(): void {
-    if (!this.player.inAir) return;
-    const b = this.player.box;
-    if (canMoveHere(b.x, Math.fround(b.y + this.player.airSpeed), b.width, b.height, this.level.tiles)) {
-      b.y = Math.fround(b.y + this.player.airSpeed);
-      this.player.airSpeed = Math.fround(this.player.airSpeed + Math.fround(0.08));
-    } else this.player.inAir = false;
+  private updateEnemies(): void {
+    const hooks: EnemyHooks = {
+      hitPlayer: (damage, enemy) => this.character.changeHealth(-damage, enemy.box.x),
+      onSpikes: enemy => { if (this.objects.touchesSpikes(enemy.box)) enemy.hurt(200); },
+      dialogue: (x, y, type) => this.dialogue.add(x, y, type),
+    };
+    let anyActive = false;
+    for (const { enemy } of this.enemies) if (enemy.active) { enemy.update(this.level.tiles, this.player.box, hooks); anyActive = true; }
+    if (!anyActive) {
+      this.song?.stop(); this.playEffect('lvlcompleted');
+      if (this.levelIndex === 4) {
+        this.clearPlaying(); this.levelIndex = 0; this.startPlaying(false); this.showOverlay('gameCompleted');
+      } else this.showOverlay('levelCompleted');
+    }
+  }
+
+  private updateCamera(): void {
+    const diff = Math.trunc(this.player.box.x) - this.offset;
+    if (diff > 1248) this.offset += diff - 1248;
+    else if (diff < 416) this.offset += diff - 416;
+    this.offset = Math.max(Math.min(this.offset, this.level.offset), 0);
+  }
+
+  private updateShip(): void {
+    if (!this.drawShip) return;
+    if (++this.shipTick >= 35) { this.shipTick = 0; this.shipFrame = (this.shipFrame + 1) % 4; }
+    this.shipY = Math.max(0, Math.min(20, Math.fround(this.shipY + Math.fround(0.1 * this.shipDir))));
+    if (this.shipY === 0) this.shipDir = 1;
+    else if (this.shipY === 20) this.shipDir = -1;
+  }
+
+  private playerHooks(): PlayerHooks {
+    return {
+      potion: player => this.objects.checkPotions(player.movement.box, type => {
+        if (type === 0) player.changeHealth(15); else player.changePower(10);
+      }),
+      spikes: player => { if (this.objects.touchesSpikes(player.movement.box)) player.kill(); },
+      water: box => {
+        const y = Math.trunc((box.y + box.height) / 64);
+        return this.level.tiles[y][Math.trunc(box.x / 64)] === 48 || this.level.tiles[y][Math.trunc((box.x + box.width) / 64)] === 48;
+      },
+      enemyHit: box => this.checkEnemyHit(box),
+      objectHit: box => this.objects.checkHit(box),
+      effect: name => this.playEffect(name === 'attack' ? `attack${1 + Math.floor(Math.random() * 3)}` : name),
+      dying: () => { this.playerDying = true; },
+      gameOver: () => { this.song?.stop(); this.showOverlay('gameOver'); },
+    };
+  }
+
+  private checkEnemyHit(box: Rect): void {
+    for (const { enemy } of this.enemies) {
+      if (!enemy.active) continue;
+      if (enemy.type === 1 && enemy.state === 2 && enemy.index >= 3) return;
+      const b = enemy.box;
+      if (enemy.state !== 3 && enemy.state !== 4 && box.x + box.width > b.x && b.x + b.width > box.x && box.y + box.height > b.y && b.y + b.height > box.y) {
+        enemy.hurt(20); return;
+      }
+    }
   }
 
   private showOverlay(kind: 'gameOver' | 'levelCompleted' | 'gameCompleted'): void {
@@ -512,7 +499,7 @@ class GameScene extends Phaser.Scene {
     this.healthBar.destroy(); this.powerBar.destroy();
     this.overlayItems = []; this.worldItems = []; this.objectImages.clear(); this.trees = [];
     this.water = []; this.bigClouds = []; this.smallClouds = []; this.enemies = [];
-    this.overlay = 'none'; this.offset = 0; this.accumulated = 0;
+    this.overlay = 'none'; this.accumulated = 0;
   }
 
   private restartLevel(playMusic = true, changeSpawn = false): void { this.clearPlaying(); this.startPlaying(playMusic, changeSpawn); }
@@ -526,20 +513,13 @@ class GameScene extends Phaser.Scene {
     this.showMenu();
   }
 
-  private damagePlayer(damage: number, enemyX?: number): void {
-    if (this.animation.state === 5) return;
-    this.health = Math.max(0, this.health - damage);
-    this.animation.state = 5; this.animation.index = 0; this.animation.tick = 0;
-    if (enemyX !== undefined) this.player.hitByEnemy(enemyX);
-  }
-
   private renderObjects(): void {
     const objects = [...this.objects.potions, ...this.objects.containers, ...this.objects.spikes, ...this.objects.cannons];
     for (const object of objects) {
       let image = this.objectImages.get(object);
       if (!image) {
         const key = object.type <= 1 ? 'potions' : object.type <= 3 ? 'containers' : object.type === 4 ? 'trap_atlas' : 'cannon';
-        image = this.image(0, 0, key, object.type === 4 ? undefined : 0).setScale(2).setDepth(20);
+        image = this.image(0, 0, key, object.type === 4 ? undefined : 0).setScale(2).setDepth(objectDrawDepth(object.type));
         this.objectImages.set(object, image);
       }
       image.setVisible(object.active);
@@ -552,7 +532,7 @@ class GameScene extends Phaser.Scene {
     }
     for (const projectile of this.objects.projectiles) {
       let image = this.objectImages.get(projectile);
-      if (!image) { image = this.image(0, 0, 'ball').setDisplaySize(30, 30).setDepth(20); this.objectImages.set(projectile, image); }
+      if (!image) { image = this.image(0, 0, 'ball').setDisplaySize(30, 30).setDepth(24); this.objectImages.set(projectile, image); }
       image.setVisible(projectile.active).setPosition(Math.trunc(projectile.box.x - this.offset), Math.trunc(projectile.box.y));
     }
     for (const tree of this.trees) {
