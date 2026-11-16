@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import type { Rect } from './collision.ts';
+import { audioVolume } from './audio.ts';
+import { isEntityInWater, type Rect } from './collision.ts';
 import { readLevel, type LevelData } from './level.ts';
 import { Enemy, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
@@ -32,6 +33,7 @@ class GameScene extends Phaser.Scene {
   private waterFrame = 0;
   private offset = 0;
   private accumulated = 0;
+  private lastFrameTime?: number;
   private enemies: { enemy: Enemy; image: Phaser.GameObjects.Image }[] = [];
   private enemyLevels = new Map<number, Enemy[]>();
   private objectLevels = new Map<number, ObjectManager>();
@@ -49,6 +51,7 @@ class GameScene extends Phaser.Scene {
   private musicMuted = false;
   private effectsMuted = false;
   private volume = 0.5;
+  private sliderValue = 0;
   private volumeX = 833;
   private song?: Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
   private effects = new Map<string, Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound>();
@@ -107,6 +110,7 @@ class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    this.sound.pauseOnBlur = false;
     for (const [key, field] of [['A', 'left'], ['D', 'right'], ['SPACE', 'jump']] as const) {
       this.input.keyboard!.on(`keydown-${key}`, () => {
         if (canHandleKey(this.mode === 'playing', this.overlay)) this.player[field] = true;
@@ -161,6 +165,7 @@ class GameScene extends Phaser.Scene {
           else { this.game.destroy(true); window.close(); }
           return;
         }
+        if (i === 0) this.playSong(this.levelIndex % 2 === 0 ? 'levelMusic' : 'levelMusic2');
         pressed = false;
         button.setFrame(row * 3);
       });
@@ -171,15 +176,15 @@ class GameScene extends Phaser.Scene {
   private clearMenuItems(): void { for (const item of this.menuItems) item.destroy(); this.menuItems = []; }
 
   private playSong(key: string): void {
-    this.song?.stop();
-    this.song = this.sound.add(key, { loop: true, volume: this.volume, mute: this.musicMuted }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+    this.song?.destroy();
+    this.song = this.sound.add(key, { loop: true, volume: audioVolume(this.volume), mute: this.musicMuted }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
     this.song.play();
   }
 
   private playEffect(key: string): void {
     let effect = this.effects.get(key);
     if (!effect) {
-      effect = this.sound.add(key, { volume: this.volume, mute: this.effectsMuted }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
+      effect = this.sound.add(key, { volume: audioVolume(this.volume), mute: this.effectsMuted }) as Phaser.Sound.WebAudioSound | Phaser.Sound.HTML5AudioSound;
       this.effects.set(key, effect);
     }
     if (effect.isPlaying) effect.stop();
@@ -206,13 +211,14 @@ class GameScene extends Phaser.Scene {
   }
 
   private showCredits(): void {
-    this.clearMenuItems(); this.mode = 'credits'; this.creditsOffset = 0; this.creditsTick = 0;
+    this.clearMenuItems(); this.mode = 'credits'; this.creditsOffset = 0;
     this.menuItems.push(this.image(0, 0, 'background_menu').setDisplaySize(WIDTH, HEIGHT));
     this.creditsImage = this.image(0, HEIGHT, 'credits_list').setScale(2);
     this.creditsImage.x = WIDTH / 2 - this.creditsImage.displayWidth / 2;
     this.menuItems.push(this.creditsImage);
     const specs: [string, number, number][] = [['player', 83, 716], ['crabby', 249, 672], ['pinkstar', 1164, 672], ['shark', 1331, 716]];
-    this.creditsEntities = specs.map(([key, x, y]) => this.image(x, y, key, 0).setScale(4));
+    this.creditsEntities = specs.map(([key, x, y], i) =>
+      this.image(x, y, key, Math.floor(this.creditsTick / 25) % [5, 9, 8, 8][i]).setScale(4));
     this.menuItems.push(...this.creditsEntities);
   }
 
@@ -259,9 +265,13 @@ class GameScene extends Phaser.Scene {
     knob.on('drag', (pointer: Phaser.Input.Pointer) => {
       this.volumeX = Math.max(646, Math.min(1020, Math.trunc(pointer.x)));
       knob.x = this.volumeX - 28;
-      this.volume = (this.volumeX - 646) / 374;
-      this.song?.setVolume(this.volume);
-      for (const effect of this.effects.values()) effect.setVolume(this.volume);
+      const value = Math.fround((this.volumeX - 646) / 374);
+      if (value !== this.sliderValue) {
+        this.sliderValue = value;
+        this.volume = value;
+        this.song?.setVolume(audioVolume(this.volume));
+        for (const effect of this.effects.values()) effect.setVolume(audioVolume(this.volume));
+      }
     });
     target.push(slider, knob);
   }
@@ -335,7 +345,9 @@ class GameScene extends Phaser.Scene {
     if (playMusic) this.playSong(this.levelIndex % 2 === 0 ? 'levelMusic' : 'levelMusic2');
   }
 
-  update(_time: number, delta: number): void {
+  update(time: number, delta: number): void {
+    if (this.lastFrameTime !== undefined) delta = Math.max(0, time - this.lastFrameTime);
+    this.lastFrameTime = time;
     if (this.mode === 'credits') {
       this.accumulated += delta;
       while (this.accumulated >= 5) {
@@ -343,7 +355,7 @@ class GameScene extends Phaser.Scene {
         this.creditsOffset = Math.fround(this.creditsOffset - Math.fround(0.2));
         this.creditsTick++;
       }
-      if (this.creditsImage) this.creditsImage.y = Math.trunc(HEIGHT + this.creditsOffset);
+      if (this.creditsImage) this.creditsImage.y = Math.trunc(Math.fround(HEIGHT + this.creditsOffset));
       this.creditsEntities.forEach((image, i) => image.setFrame(Math.floor(this.creditsTick / 25) % [5, 9, 8, 8][i]));
       return;
     }
@@ -359,8 +371,9 @@ class GameScene extends Phaser.Scene {
     this.water.forEach(image => image.setFrame(this.waterFrame));
     this.bigClouds.forEach((image, i) => image.x = i * 896 - Math.trunc(this.offset * 0.3));
     this.smallClouds.forEach((image, i) => image.x = i * 592 - Math.trunc(this.offset * 0.7));
-    this.ship.setPosition(200 - this.offset, Math.trunc(576 + this.shipY)).setFrame(this.shipFrame);
-    this.playerImage.setPosition(Math.trunc(this.player.box.x - 42) - this.offset, Math.trunc(this.player.box.y - 8 + Math.trunc(this.player.pushDrawOffset)))
+    this.ship.setPosition(200 - this.offset, Math.trunc(Math.fround(576 + this.shipY))).setFrame(this.shipFrame);
+    this.playerImage.setPosition(Math.trunc(Math.fround(this.player.box.x - 42)) - this.offset,
+      Math.trunc(Math.fround(Math.fround(this.player.box.y - 8) + Math.trunc(this.player.pushDrawOffset))))
       .setFrame(this.animation.state * 8 + this.animation.index).setFlipX(this.player.flip === -1);
     this.healthBar.width = this.character.healthWidth;
     this.powerBar.width = this.character.powerWidth;
@@ -422,10 +435,7 @@ class GameScene extends Phaser.Scene {
         if (type === 0) player.changeHealth(15); else player.changePower(10);
       }),
       spikes: player => { if (this.objects.touchesSpikes(player.movement.box)) player.kill(); },
-      water: box => {
-        const y = Math.trunc((box.y + box.height) / 64);
-        return this.level.tiles[y][Math.trunc(box.x / 64)] === 48 || this.level.tiles[y][Math.trunc((box.x + box.width) / 64)] === 48;
-      },
+      water: box => isEntityInWater(box, this.level.tiles),
       enemyHit: box => this.checkEnemyHit(box),
       objectHit: box => this.objects.checkHit(box),
       effect: name => this.playEffect(name === 'attack' ? `attack${1 + Math.floor(Math.random() * 3)}` : name),
@@ -523,7 +533,7 @@ class GameScene extends Phaser.Scene {
         this.objectImages.set(object, image);
       }
       image.setVisible(object.active);
-      if (object.type <= 1) image.setPosition(Math.trunc(object.box.x - 6) - this.offset, Math.trunc(object.box.y - 4))
+      if (object.type <= 1) image.setPosition(Math.trunc(Math.fround(Math.fround(object.box.x - 6) - this.offset)), Math.trunc(Math.fround(object.box.y - 4)))
         .setFrame((object.type === 0 ? 7 : 0) + object.index);
       else if (object.type <= 3) image.setPosition(Math.trunc(object.box.x - (object.type === 3 ? 14 : 16)) - this.offset,
         Math.trunc(object.box.y - (object.type === 3 ? 24 : 10))).setFrame((object.type === 2 ? 8 : 0) + object.index);
@@ -533,7 +543,7 @@ class GameScene extends Phaser.Scene {
     for (const projectile of this.objects.projectiles) {
       let image = this.objectImages.get(projectile);
       if (!image) { image = this.image(0, 0, 'ball').setDisplaySize(30, 30).setDepth(24); this.objectImages.set(projectile, image); }
-      image.setVisible(projectile.active).setPosition(Math.trunc(projectile.box.x - this.offset), Math.trunc(projectile.box.y));
+      image.setVisible(projectile.active).setPosition(Math.trunc(Math.fround(projectile.box.x - this.offset)), Math.trunc(projectile.box.y));
     }
     for (const tree of this.trees) {
       const x = tree.type === 7 ? tree.x - 7 : tree.type === 8 ? tree.x + 25 : tree.x + 38 - 124;
@@ -544,4 +554,5 @@ class GameScene extends Phaser.Scene {
 }
 
 new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: WIDTH, height: HEIGHT, pixelArt: true,
+  fps: { smoothStep: false },
   scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: GameScene });
