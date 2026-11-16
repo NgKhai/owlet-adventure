@@ -59,8 +59,8 @@ export class Player {
   }
 
   update(hooks: PlayerHooks): void {
-    this.healthWidth = Math.trunc(this.health / 100 * 300);
-    this.powerWidth = Math.trunc(this.power / 200 * 208);
+    this.healthWidth = Math.trunc(Math.fround(Math.fround(this.health / 100) * 300));
+    this.powerWidth = Math.trunc(Math.fround(Math.fround(this.power / 200) * 208));
     if (++this.powerTick >= 15) { this.powerTick = 0; this.changePower(1); }
     const m = this.movement, a = this.animation;
     if (this.health <= 0) {

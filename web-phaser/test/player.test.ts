@@ -44,3 +44,13 @@ test('damage rejects repeated hits and death reaches game over after final anima
   for (let i = 0; i < 200; i++) player.update(hooks(events));
   deepStrictEqual(events, ['dying', 'die', 'gameover', 'gameover']);
 });
+
+test('health bar width uses Java float precision before truncating', () => {
+  const player = new Player(100, 73, level);
+  player.health = 21;
+  player.update(hooks([]));
+  strictEqual(player.healthWidth, 62);
+  player.health = 57;
+  player.update(hooks([]));
+  strictEqual(player.healthWidth, 171);
+});
