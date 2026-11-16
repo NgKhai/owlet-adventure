@@ -37,7 +37,9 @@ export class Player {
     this.animation.reset();
     this.health = 100;
     this.power = 200;
-    this.attackBox.x = this.movement.flip === 1 ? x + this.movement.box.width - 10 : x - this.movement.box.width - 20;
+    this.attackBox.x = this.movement.flip === 1
+      ? Math.fround(Math.fround(x + this.movement.box.width) - 10)
+      : Math.fround(Math.fround(x - this.movement.box.width) - 20);
   }
 
   changeHealth(value: number, enemyX?: number): void {
@@ -77,10 +79,11 @@ export class Player {
       return;
     }
 
-    if (m.left && m.right) this.attackBox.x = m.flip === 1 ? m.box.x + m.box.width - 10 : m.box.x - m.box.width - 20;
-    else if (m.right || (m.powerAttackActive && m.flip === 1)) this.attackBox.x = m.box.x + m.box.width - 10;
-    else if (m.left || (m.powerAttackActive && m.flip === -1)) this.attackBox.x = m.box.x - m.box.width - 20;
-    this.attackBox.y = m.box.y + 20;
+    if (m.left && m.right) this.attackBox.x = m.flip === 1
+      ? Math.fround(Math.fround(m.box.x + m.box.width) - 10) : Math.fround(Math.fround(m.box.x - m.box.width) - 20);
+    else if (m.right || (m.powerAttackActive && m.flip === 1)) this.attackBox.x = Math.fround(Math.fround(m.box.x + m.box.width) - 10);
+    else if (m.left || (m.powerAttackActive && m.flip === -1)) this.attackBox.x = Math.fround(Math.fround(m.box.x - m.box.width) - 20);
+    this.attackBox.y = Math.fround(m.box.y + 20);
     if (a.state === 5) m.updateHit(a.index);
     else {
       if (m.jump && !m.inAir) hooks.effect('jump');

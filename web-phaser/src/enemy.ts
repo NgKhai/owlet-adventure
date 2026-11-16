@@ -1,4 +1,4 @@
-import { canMoveHere, isAllTilesWalkable, isEntityOnFloor, isSolid, type Rect } from './collision.ts';
+import { canMoveHere, isAllTilesWalkable, isEntityInWater, isEntityOnFloor, isSolid, type Rect } from './collision.ts';
 
 export type EnemyHooks = {
   hitPlayer: (damage: number, enemy: Enemy) => void;
@@ -68,16 +68,16 @@ export class Enemy {
   }
 
   private canSee(level: number[][], player: Rect): boolean {
-    if (Math.trunc(player.y / 64) !== this.tileY || Math.trunc(Math.abs(player.x - this.box.x)) > 320) return false;
+    if (Math.trunc(player.y / 64) !== this.tileY || Math.trunc(Math.abs(Math.fround(player.x - this.box.x))) > 320) return false;
     const first = Math.trunc(this.box.x / 64);
-    const playerX = isSolid(player.x, player.y + player.height + 1, level) ? player.x : player.x + player.width;
+    const playerX = isSolid(player.x, Math.fround(Math.fround(player.y + player.height) + 1), level) ? player.x : Math.fround(player.x + player.width);
     const second = Math.trunc(playerX / 64);
     return isAllTilesWalkable(Math.min(first, second), Math.max(first, second), this.tileY, level);
   }
 
   private floorAhead(speed: number, level: number[][]): boolean {
-    const x = speed > 0 ? this.box.x + this.box.width + speed : this.box.x + speed;
-    return isSolid(x, this.box.y + this.box.height + 1, level);
+    const x = speed > 0 ? Math.fround(Math.fround(this.box.x + this.box.width) + speed) : Math.fround(this.box.x + speed);
+    return isSolid(x, Math.fround(Math.fround(this.box.y + this.box.height) + 1), level);
   }
 
   private move(level: number[][], hooks: EnemyHooks, multiplier = 1): void {
@@ -122,8 +122,7 @@ export class Enemy {
           this.tileY = Math.trunc(this.box.y / 64);
         }
         hooks.onSpikes(this);
-        const y = Math.trunc((this.box.y + this.box.height) / 64);
-        if (level[y][Math.trunc(this.box.x / 64)] === 48 || level[y][Math.trunc((this.box.x + this.box.width) / 64)] === 48)
+        if (isEntityInWater(this.box, level))
           this.hurt(this.type === 0 ? 50 : 25);
       }
       return;
@@ -139,7 +138,7 @@ export class Enemy {
       if (this.canSee(level, player)) {
         if (this.type === 1) this.newState(2);
         this.walkDir = player.x > this.box.x ? 2 : 0;
-        if (this.type !== 1 && Math.trunc(Math.abs(player.x - this.box.x)) <= (this.type === 0 ? 64 : 128)) this.newState(2);
+        if (this.type !== 1 && Math.trunc(Math.abs(Math.fround(player.x - this.box.x))) <= (this.type === 0 ? 64 : 128)) this.newState(2);
       }
       this.move(level, hooks, this.type === 1 && (this.state as number) === 2 ? 2 : 1);
     } else if (this.state === 2) {
@@ -188,8 +187,8 @@ export class Enemy {
         }
       }
     }
-    if (this.type === 0) this.attackBox.x = this.box.x - 60;
-    if (this.type === 2) this.attackBox.x = this.walkDir === 2 ? this.box.x + this.box.width : this.box.x - 40;
+    if (this.type === 0) this.attackBox.x = Math.fround(this.box.x - 60);
+    if (this.type === 2) this.attackBox.x = Math.fround(this.walkDir === 2 ? this.box.x + this.box.width : this.box.x - 40);
     this.attackBox.y = this.box.y;
   }
 }

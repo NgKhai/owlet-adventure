@@ -56,7 +56,7 @@ export class PlayerMovement {
 
   recoverFromHit(): void {
     this.airSpeed = 0;
-    if (!isSolid(this.box.x, this.box.y + this.box.height + 1, this.level)) this.inAir = true;
+    if (!isSolid(this.box.x, Math.fround(Math.fround(this.box.y + this.box.height) + 1), this.level)) this.inAir = true;
   }
 
   update(): void {

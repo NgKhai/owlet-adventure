@@ -119,7 +119,7 @@ export class ObjectManager {
     for (const container of this.containers) if (container.active) container.update();
     for (const cannon of this.cannons) {
       const first = Math.trunc(player.x / 64), second = Math.trunc(cannon.box.x / 64);
-      if (!cannon.animate && Math.trunc(cannon.y / 64) === tileY && Math.trunc(Math.abs(player.x - cannon.box.x)) <= 320
+      if (!cannon.animate && Math.trunc(cannon.y / 64) === tileY && Math.trunc(Math.abs(Math.fround(player.x - cannon.box.x))) <= 320
         && (cannon.type === 5 ? cannon.box.x > player.x : cannon.box.x < player.x)
         && isAllTilesClear(Math.min(first, second), Math.max(first, second), Math.trunc(cannon.y / 64), level)) cannon.animate = true;
       cannon.update();

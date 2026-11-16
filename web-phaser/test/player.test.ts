@@ -54,3 +54,13 @@ test('health bar width uses Java float precision before truncating', () => {
   player.update(hooks([]));
   strictEqual(player.healthWidth, 171);
 });
+
+test('attack hitbox coordinates use Java float rounding', () => {
+  const player = new Player(100, 73, level);
+  player.movement.box.x = Math.fround(63.999996);
+  player.movement.box.y = Math.fround(63.999996);
+  player.movement.right = true;
+  player.update(hooks([]));
+  strictEqual(player.attackBox.x, 94);
+  strictEqual(player.attackBox.y, 84);
+});
