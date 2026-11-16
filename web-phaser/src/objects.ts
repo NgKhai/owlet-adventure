@@ -1,6 +1,10 @@
 import { isAllTilesClear, isSolid, type Rect } from './collision.ts';
 import type { Placement } from './level.ts';
 
+export function objectDrawDepth(type: number): number {
+  return type <= 1 ? 20 : type <= 3 ? 21 : type === 4 ? 22 : 23;
+}
+
 export function intersects(a: Rect, b: Rect): boolean {
   return a.x + a.width > b.x && b.x + b.width > a.x && a.y + a.height > b.y && b.y + b.height > a.y;
 }

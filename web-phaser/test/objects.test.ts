@@ -1,8 +1,16 @@
 import { test } from 'node:test';
 import { strictEqual } from 'node:assert';
-import { ObjectManager } from '../src/objects.ts';
+import { ObjectManager, objectDrawDepth } from '../src/objects.ts';
 
 const level = Array.from({ length: 14 }, () => Array(26).fill(11));
+
+test('object types retain Java draw ordering even when potions spawn later', () => {
+  strictEqual(objectDrawDepth(0) < objectDrawDepth(2), true);
+  strictEqual(objectDrawDepth(1), objectDrawDepth(0));
+  strictEqual(objectDrawDepth(2) < objectDrawDepth(4), true);
+  strictEqual(objectDrawDepth(4) < objectDrawDepth(5), true);
+  strictEqual(objectDrawDepth(5), objectDrawDepth(6));
+});
 
 test('hitting a box spawns a red potion and removes the box after eight frames', () => {
   const objects = new ObjectManager([{ type: 3, x: 64, y: 64 }]);
