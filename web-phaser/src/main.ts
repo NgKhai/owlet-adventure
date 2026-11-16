@@ -155,7 +155,7 @@ class GameScene extends Phaser.Scene {
       let pressed = false;
       button.on('pointerover', () => button.setFrame(row * 3 + (pressed ? 2 : 1)));
       button.on('pointerout', () => button.setFrame(row * 3 + (pressed ? 2 : 0)));
-      button.on('pointerupoutside', () => { pressed = false; button.setFrame(row * 3); });
+      this.resetOnPointerUp(button, () => { pressed = false; button.setFrame(row * 3); });
       button.on('pointerdown', () => { pressed = true; button.setFrame(row * 3 + 2); });
       button.on('pointerup', () => {
         if (pressed) {
@@ -174,6 +174,15 @@ class GameScene extends Phaser.Scene {
   }
 
   private clearMenuItems(): void { for (const item of this.menuItems) item.destroy(); this.menuItems = []; }
+
+  private resetOnPointerUp(item: Phaser.GameObjects.GameObject, reset: () => void): void {
+    this.input.on('pointerup', reset);
+    this.input.on('pointerupoutside', reset);
+    item.once('destroy', () => {
+      this.input.off('pointerup', reset);
+      this.input.off('pointerupoutside', reset);
+    });
+  }
 
   private playSong(key: string): void {
     this.song?.destroy();
@@ -227,7 +236,7 @@ class GameScene extends Phaser.Scene {
     let pressed = false;
     button.on('pointerover', () => button.setFrame(row * 3 + (pressed ? 2 : 1)));
     button.on('pointerout', () => button.setFrame(row * 3 + (pressed ? 2 : 0)));
-    button.on('pointerupoutside', () => { pressed = false; button.setFrame(row * 3); });
+    this.resetOnPointerUp(button, () => { pressed = false; button.setFrame(row * 3); });
     button.on('pointerdown', () => { pressed = true; button.setFrame(row * 3 + 2); });
     button.on('pointerup', () => { if (pressed) action(); });
     target.push(button);
@@ -241,7 +250,7 @@ class GameScene extends Phaser.Scene {
       const frame = (state: number) => button.setFrame(((i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0) + state);
       button.on('pointerover', () => frame(pressed ? 2 : 1));
       button.on('pointerout', () => frame(pressed ? 2 : 0));
-      button.on('pointerupoutside', () => { pressed = false; frame(0); });
+      this.resetOnPointerUp(button, () => { pressed = false; frame(0); });
       button.on('pointerdown', () => { pressed = true; frame(2); });
       button.on('pointerup', () => {
         if (pressed) {
@@ -263,7 +272,7 @@ class GameScene extends Phaser.Scene {
     knob.on('pointerout', () => knob.setFrame(knobPressed ? 'knob2' : 'knob0'));
     knob.on('pointerdown', () => { knobPressed = true; knob.setFrame('knob2'); });
     knob.on('pointerup', () => { knobPressed = false; knob.setFrame('knob0'); });
-    knob.on('pointerupoutside', () => { knobPressed = false; knob.setFrame('knob0'); });
+    this.resetOnPointerUp(knob, () => { knobPressed = false; knob.setFrame('knob0'); });
     knob.on('drag', (pointer: Phaser.Input.Pointer) => {
       this.volumeX = Math.max(646, Math.min(1020, Math.trunc(pointer.x)));
       knob.x = this.volumeX - 28;
