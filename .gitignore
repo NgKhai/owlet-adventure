@@ -1,0 +1,15 @@
+.metadata
+bin/
+out/
+graphify-out/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.settings/
+.loadpath
+.recommenders
+.project
+.classpath
