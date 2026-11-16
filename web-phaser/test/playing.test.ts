@@ -1,6 +1,17 @@
 import { test } from 'node:test';
 import { deepStrictEqual, strictEqual } from 'node:assert';
-import { canHandleClick, canHandleKey, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+
+test('a dragged mouse press does not generate a click, even if it returns to the start', () => {
+  const clicks = new MouseClicks();
+  clicks.press(0, 10, 10);
+  clicks.move(11, 10, true);
+  clicks.move(10, 10, true);
+  strictEqual(clicks.release(0), false);
+  clicks.press(2, 10, 10);
+  clicks.move(10, 10, true);
+  strictEqual(clicks.release(2), true);
+});
 
 test('active playing updates systems in the Java order even when enemies complete the level', () => {
   const calls: string[] = [];

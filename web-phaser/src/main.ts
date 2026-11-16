@@ -6,7 +6,7 @@ import { Enemy, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { canHandleClick, canHandleKey, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -130,8 +130,12 @@ class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keyup-ESC', () => { if (this.mode === 'credits') this.showMenuFromScreen(true); });
     this.game.events.on('blur', () => { if (this.mode === 'playing') { this.player.left = false; this.player.right = false; } });
     this.game.canvas.addEventListener('contextmenu', event => event.preventDefault());
+    const clicks = new MouseClicks();
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => clicks.press(pointer.button, pointer.x, pointer.y));
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => clicks.move(pointer.x, pointer.y, pointer.isDown));
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => clicks.release(pointer.button));
     this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!canHandleClick(this.mode === 'playing', this.overlay)) return;
+      if (!clicks.release(pointer.button) || !canHandleClick(this.mode === 'playing', this.overlay)) return;
       if (pointer.button === 0) this.animation.attacking = true;
       else if (pointer.button === 2) this.character.powerAttack();
     });

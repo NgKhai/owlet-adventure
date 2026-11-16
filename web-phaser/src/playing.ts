@@ -11,6 +11,27 @@ export type PlayingSteps = {
 
 export type PlayingOverlay = 'none' | 'pause' | 'gameOver' | 'levelCompleted' | 'gameCompleted';
 
+export class MouseClicks {
+  private buttons = 0;
+  private x = 0;
+  private y = 0;
+
+  press(button: number, x: number, y: number): void {
+    this.buttons |= 1 << button;
+    this.x = x; this.y = y;
+  }
+  move(x: number, y: number, down: boolean): void {
+    if (down && (x !== this.x || y !== this.y)) this.buttons = 0;
+    this.x = x; this.y = y;
+  }
+  release(button: number): boolean {
+    const mask = 1 << button;
+    const clicked = (this.buttons & mask) !== 0;
+    this.buttons &= ~mask;
+    return clicked;
+  }
+}
+
 export function canHandleKey(playing: boolean, overlay: PlayingOverlay): boolean {
   return playing && overlay !== 'gameOver' && overlay !== 'levelCompleted' && overlay !== 'gameCompleted';
 }
