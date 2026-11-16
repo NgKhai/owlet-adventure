@@ -2,6 +2,7 @@
 bin/
 out/
 graphify-out/
+docs/superpowers/
 tmp/
 *.tmp
 *.bak
