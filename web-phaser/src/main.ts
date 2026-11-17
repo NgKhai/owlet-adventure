@@ -291,8 +291,8 @@ class GameScene extends Phaser.Scene {
     knob.on('pointerdown', () => { knobPressed = true; knob.setFrame('knob2'); });
     knob.on('pointerup', () => { knobPressed = false; knob.setFrame('knob0'); });
     this.resetOnPointerUp(knob, () => { knobPressed = false; knob.setFrame('knob0'); });
-    knob.on('drag', (pointer: Phaser.Input.Pointer) => {
-      this.volumeX = Math.max(646, Math.min(1020, Math.trunc(pointer.x)));
+    const changeVolume = (x: number) => {
+      this.volumeX = Math.max(646, Math.min(1020, Math.trunc(x)));
       knob.x = this.volumeX - 28;
       const value = Math.fround((this.volumeX - 646) / 374);
       if (value !== this.sliderValue) {
@@ -301,7 +301,14 @@ class GameScene extends Phaser.Scene {
         this.song?.setVolume(audioVolume(this.volume));
         for (const effect of this.effects.values()) effect.setVolume(audioVolume(this.volume));
       }
-    });
+    };
+    knob.on('drag', (pointer: Phaser.Input.Pointer) => changeVolume(pointer.x));
+    const panel = this.game.canvas.parentElement!;
+    const dragOutside = (event: MouseEvent) => {
+      if (knobPressed && event.buttons && event.target !== this.game.canvas) changeVolume(this.scale.transformX(event.pageX));
+    };
+    panel.addEventListener('mousemove', dragOutside);
+    knob.once('destroy', () => panel.removeEventListener('mousemove', dragOutside));
     target.push(slider, knob);
   }
 
