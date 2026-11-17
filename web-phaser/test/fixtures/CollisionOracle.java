@@ -33,5 +33,14 @@ public class CollisionOracle {
                 HelpMethods.IsEntityOnFloor(box, level) + "," +
                 HelpMethods.IsEntityInWater(box, level));
         }
+        float[] edgeX = {-128f, -64f, -0.001f, 0f, 0.001f, 63.999f, 64f, 1593f, 1663.999f, 1664f, 1700f};
+        float[] edgeY = {-64f, -0.001f, 0f, 0.001f, 63.999f, 832f, 895.999f, 896f};
+        for (float x : edgeX) for (float y : edgeY) {
+            float width = 40, height = 54;
+            Rectangle2D.Float box = new Rectangle2D.Float(x, y, width, height);
+            System.out.println(Float.floatToIntBits(x) + "," + Float.floatToIntBits(y) + ",40,54," +
+                HelpMethods.CanMoveHere(x, y, width, height, level) + "," +
+                HelpMethods.IsEntityOnFloor(box, level) + ",skip");
+        }
     }
 }
