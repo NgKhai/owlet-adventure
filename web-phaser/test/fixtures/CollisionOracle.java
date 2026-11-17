@@ -38,9 +38,12 @@ public class CollisionOracle {
         for (float x : edgeX) for (float y : edgeY) {
             float width = 40, height = 54;
             Rectangle2D.Float box = new Rectangle2D.Float(x, y, width, height);
+            String water;
+            try { water = Boolean.toString(HelpMethods.IsEntityInWater(box, level)); }
+            catch (ArrayIndexOutOfBoundsException e) { water = "error"; }
             System.out.println(Float.floatToIntBits(x) + "," + Float.floatToIntBits(y) + ",40,54," +
                 HelpMethods.CanMoveHere(x, y, width, height, level) + "," +
-                HelpMethods.IsEntityOnFloor(box, level) + ",skip");
+                HelpMethods.IsEntityOnFloor(box, level) + "," + water);
         }
     }
 }

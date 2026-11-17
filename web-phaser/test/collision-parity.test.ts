@@ -1,5 +1,5 @@
 import { test } from 'node:test';
-import { strictEqual } from 'node:assert';
+import { strictEqual, throws } from 'node:assert';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -26,7 +26,8 @@ test('collision probes match Java at tile boundaries and varied positions', () =
       const box = { x: fromBits(xb), y: fromBits(yb), width: Number(w), height: Number(h) };
       strictEqual(canMoveHere(box.x, box.y, box.width, box.height, level), move === 'true', `move case ${index}`);
       strictEqual(isEntityOnFloor(box, level), floor === 'true', `floor case ${index}`);
-      if (water !== 'skip') strictEqual(isEntityInWater(box, level), water === 'true', `water case ${index}`);
+      if (water === 'error') throws(() => isEntityInWater(box, level), `water case ${index}`);
+      else strictEqual(isEntityInWater(box, level), water === 'true', `water case ${index}`);
     }
   } finally {
     rmSync(output, { recursive: true, force: true });

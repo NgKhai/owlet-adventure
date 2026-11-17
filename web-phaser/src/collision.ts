@@ -27,8 +27,12 @@ export function isEntityOnFloor(box: Rect, level: number[][]): boolean {
 
 export function isEntityInWater(box: Rect, level: number[][]): boolean {
   const y = Math.trunc(Math.fround(box.y + box.height) / TILE_SIZE);
-  return level[y][Math.trunc(box.x / TILE_SIZE)] === 48
-    || level[y][Math.trunc(Math.fround(box.x + box.width) / TILE_SIZE)] === 48;
+  const tile = (x: number) => {
+    if (y < 0 || y >= level.length || x < 0 || x >= level[y].length) throw new RangeError('Tile outside level');
+    return level[y][x];
+  };
+  return tile(Math.trunc(box.x / TILE_SIZE)) === 48
+    || tile(Math.trunc(Math.fround(box.x + box.width) / TILE_SIZE)) === 48;
 }
 
 export function isAllTilesClear(start: number, end: number, y: number, level: number[][]): boolean {
