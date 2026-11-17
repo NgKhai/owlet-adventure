@@ -9,6 +9,17 @@ export type EnemyHooks = {
 const intersects = (a: Rect, b: Rect): boolean =>
   a.x + a.width > b.x && a.y + a.height > b.y && b.x + b.width > a.x && b.y + b.height > a.y;
 
+export function checkEnemyHit(enemies: Enemy[], box: Rect): void {
+  for (const enemy of enemies) {
+    if (!enemy.active) continue;
+    if (enemy.type === 1 && enemy.state === 2 && enemy.index >= 3) return;
+    if (enemy.state !== 3 && enemy.state !== 4 && intersects(box, enemy.box)) {
+      enemy.hurt(20);
+      return;
+    }
+  }
+}
+
 export class Enemy {
   readonly type: number;
   readonly box: Rect;

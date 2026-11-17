@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { audioVolume } from './audio.ts';
-import { isEntityInWater, type Rect } from './collision.ts';
+import { isEntityInWater } from './collision.ts';
 import { readLevel, type LevelData } from './level.ts';
-import { Enemy, type EnemyHooks } from './enemy.ts';
+import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
@@ -451,23 +451,12 @@ class GameScene extends Phaser.Scene {
       }),
       spikes: player => { if (this.objects.touchesSpikes(player.movement.box)) player.kill(); },
       water: box => isEntityInWater(box, this.level.tiles),
-      enemyHit: box => this.checkEnemyHit(box),
+      enemyHit: box => checkEnemyHit(this.enemies.map(({ enemy }) => enemy), box),
       objectHit: box => this.objects.checkHit(box),
       effect: name => this.playEffect(name === 'attack' ? `attack${1 + Math.floor(Math.random() * 3)}` : name),
       dying: () => { this.playerDying = true; },
       gameOver: () => { this.song?.stop(); this.showOverlay('gameOver'); },
     };
-  }
-
-  private checkEnemyHit(box: Rect): void {
-    for (const { enemy } of this.enemies) {
-      if (!enemy.active) continue;
-      if (enemy.type === 1 && enemy.state === 2 && enemy.index >= 3) return;
-      const b = enemy.box;
-      if (enemy.state !== 3 && enemy.state !== 4 && box.x + box.width > b.x && b.x + b.width > box.x && box.y + box.height > b.y && b.y + b.height > box.y) {
-        enemy.hurt(20); return;
-      }
-    }
   }
 
   private showOverlay(kind: 'gameOver' | 'levelCompleted' | 'gameCompleted'): void {
