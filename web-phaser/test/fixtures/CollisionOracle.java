@@ -1,6 +1,7 @@
 package utilz;
 
 import java.awt.geom.Rectangle2D;
+import java.util.Random;
 
 public class CollisionOracle {
     public static void main(String[] args) {
@@ -11,13 +12,19 @@ public class CollisionOracle {
         for (int y = 0; y < 14; y++)
             for (int x = 0; x < 26; x++)
                 level[y][x] = tiles[(x * 7 + y * 11) % tiles.length];
-        for (int i = 0; i < 2000; i++) {
+        Random random = new Random(7391);
+        for (int i = 0; i < 7000; i++) {
             float x = ((i * 37) % 23 + 1) * 64f - widths[i % widths.length];
             float y = ((i * 17) % 11 + 1) * 64f - heights[i % heights.length];
-            if (i % 3 == 0) x = Math.nextDown(x);
-            if (i % 3 == 1) x = Math.nextUp(x);
-            if (i % 5 == 0) y = Math.nextDown(y);
-            if (i % 5 == 1) y = Math.nextUp(y);
+            if (i < 2000) {
+                if (i % 3 == 0) x = Math.nextDown(x);
+                if (i % 3 == 1) x = Math.nextUp(x);
+                if (i % 5 == 0) y = Math.nextDown(y);
+                if (i % 5 == 1) y = Math.nextUp(y);
+            } else {
+                x = random.nextFloat() * (1663 - widths[i % widths.length]);
+                y = random.nextFloat() * (895 - heights[i % heights.length]);
+            }
             float width = widths[i % widths.length], height = heights[i % heights.length];
             Rectangle2D.Float box = new Rectangle2D.Float(x, y, width, height);
             System.out.println(Float.floatToIntBits(x) + "," + Float.floatToIntBits(y) + "," +

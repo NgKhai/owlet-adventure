@@ -7,7 +7,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canMoveHere, isEntityInWater, isEntityOnFloor } from '../src/collision.ts';
 
-test('collision probes match Java float behavior at tile boundaries', () => {
+test('collision probes match Java at tile boundaries and varied positions', () => {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
   const output = mkdtempSync(join(tmpdir(), 'owlet-collision-'));
   try {
@@ -16,7 +16,7 @@ test('collision probes match Java float behavior at tile boundaries', () => {
     files.push(join(root, 'web-phaser', 'test', 'fixtures', 'CollisionOracle.java'));
     execFileSync('javac', ['-encoding', 'UTF-8', '-d', output, ...files], { stdio: 'pipe' });
     const lines = execFileSync('java', ['-cp', output, 'utilz.CollisionOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
-    strictEqual(lines.length, 2000);
+    strictEqual(lines.length, 7000);
     const level = Array.from({ length: 14 }, (_, y) =>
       Array.from({ length: 26 }, (_, x) => [0, 11, 48, 49, 11][(x * 7 + y * 11) % 5]));
     const bits = new DataView(new ArrayBuffer(4));
