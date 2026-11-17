@@ -20,19 +20,28 @@ test('enemy detection, attacks and damage match Java each tick', () => {
     const player = { x: 250, y: 73, width: 40, height: 54 };
     const bits = new DataView(new ArrayBuffer(4));
     const floatBits = (value: number) => { bits.setFloat32(0, value); return bits.getInt32(0); };
-    const enemies = [new Enemy(0, 200, 89), new Enemy(1, 200, 85), new Enemy(2, 200, 83)];
     let line = 0;
-    enemies.forEach((enemy, type) => {
-      let health = 100, state = 0;
-      enemy.tileY = 1;
-      const hooks = { hitPlayer: (damage: number) => { if (state !== 5) { health = Math.max(0, health - damage); state = 5; } }, onSpikes: () => {}, dialogue: () => {} };
-      for (let tick = 0; tick < 600; tick++) {
-        if (tick % 50 === 0) state = 0;
-        if (tick === 180) enemy.hurt(20);
-        if (tick === 380) enemy.reset();
-        enemy.update(level, player, hooks);
-        strictEqual([type, tick, floatBits(enemy.box.x), enemy.state, enemy.index, enemy.walkDir, health, state].join(','), java[line++]);
-      }
-    });
+    for (let scenario = 0; scenario < 2; scenario++) {
+      const enemies = [new Enemy(0, 200, 89), new Enemy(1, 200, 85), new Enemy(2, 200, 83)];
+      enemies.forEach((enemy, type) => {
+        player.x = 250;
+        let health = 100, state = 0;
+        enemy.tileY = 1;
+        const hooks = { hitPlayer: (damage: number) => { if (state !== 5) { health = Math.max(0, health - damage); state = 5; } }, onSpikes: () => {}, dialogue: () => {} };
+        for (let tick = 0; tick < 600; tick++) {
+          if (scenario === 1) {
+            if (tick === 0) { player.x = 400; level[1][4] = 0; }
+            if (tick === 80) level[1][4] = 11;
+            if (tick === 160 || tick === 340) player.x = 250;
+            if (tick === 260) player.x = 150;
+          }
+          if (tick % 50 === 0) state = 0;
+          if (tick === 180) enemy.hurt(20);
+          if (tick === 380) enemy.reset();
+          enemy.update(level, player, hooks);
+          strictEqual([type, tick, floatBits(enemy.box.x), enemy.state, enemy.index, enemy.walkDir, health, state].join(','), java[line++]);
+        }
+      });
+    }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });

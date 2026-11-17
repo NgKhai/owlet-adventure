@@ -12,7 +12,7 @@ public class EnemyCombatOracle {
         Unsafe unsafe = (Unsafe) f.get(null);
         int[][] level = new int[14][26];
         for (int y = 0; y < 14; y++) for (int x = 0; x < 26; x++) level[y][x] = y == 2 ? 0 : 11;
-        for (int type = 0; type < 3; type++) {
+        for (int scenario = 0; scenario < 2; scenario++) for (int type = 0; type < 3; type++) {
             Player player = (Player) unsafe.allocateInstance(Player.class);
             player.hitbox = new Rectangle2D.Float(250, 73, 40, 54);
             player.maxHealth = 100; player.currentHealth = 100;
@@ -22,6 +22,12 @@ public class EnemyCombatOracle {
             Enemy enemy = type == 0 ? new Crabby(200, 89) : type == 1 ? new Pinkstar(200, 85) : new Shark(200, 83);
             enemy.tileY = 1;
             for (int tick = 0; tick < 600; tick++) {
+                if (scenario == 1) {
+                    if (tick == 0) { player.hitbox.x = 400; level[1][4] = 0; }
+                    if (tick == 80) level[1][4] = 11;
+                    if (tick == 160 || tick == 340) player.hitbox.x = 250;
+                    if (tick == 260) player.hitbox.x = 150;
+                }
                 if (tick % 50 == 0) player.state = 0;
                 if (tick == 180) enemy.hurt(20);
                 if (tick == 380) enemy.resetEnemy();
