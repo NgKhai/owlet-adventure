@@ -17,7 +17,7 @@ test('complete player update matches Java during movement, combat and death', ()
       .filter(entry => entry.isFile() && entry.name.endsWith('.java')).map(entry => join(entry.parentPath, entry.name));
     files.push(join(root, 'web-phaser', 'test', 'fixtures', 'PlayerUpdateOracle.java'));
     execFileSync('javac', ['-encoding', 'UTF-8', '-d', output, ...files], { stdio: 'pipe' });
-    for (const scenario of ['normal', 'airborne-wall', 'water', 'spikes']) {
+    for (const scenario of ['normal', 'airborne-wall', 'water', 'spikes', 'potions']) {
       const java = execFileSync('java', ['-cp', output, 'entities.PlayerUpdateOracle', ...(scenario === 'normal' ? [] : [scenario])], { encoding: 'utf8' }).trim().split(/\r?\n/);
       const level = Array.from({ length: 14 }, (_, y) => Array(26).fill(y === 2 ? 0 : 11));
       const player = new Player(100, 73, level);
@@ -27,8 +27,11 @@ test('complete player update matches Java during movement, combat and death', ()
       let events = '';
       const spikes = new ObjectManager([{ type: 4, x: 128, y: 64 }]);
       let spikesEnabled = false;
+      const potions = new ObjectManager([{ type: 0, x: 150, y: 73 }, { type: 1, x: 150, y: 73 }]);
+      let potionsEnabled = false;
       const hooks: PlayerHooks = {
-        potion: () => { events += 'P'; }, spikes: p => { events += 'S'; if (spikesEnabled && spikes.touchesSpikes(p.movement.box)) p.kill(); }, water: box => isEntityInWater(box, level),
+        potion: p => { events += 'P'; if (potionsEnabled) potions.checkPotions(p.movement.box, type => type === 0 ? p.changeHealth(15) : p.changePower(10)); },
+        spikes: p => { events += 'S'; if (spikesEnabled && spikes.touchesSpikes(p.movement.box)) p.kill(); }, water: box => isEntityInWater(box, level),
         enemyHit: () => { events += 'E'; }, objectHit: () => { events += 'O'; },
         effect: name => { events += name === 'jump' ? 'J' : name === 'die' ? 'D' : name === 'gameover' ? 'G' : 'A'; },
         dying: () => { events += 'D'; }, gameOver: () => { events += 'GS'; },
@@ -49,6 +52,10 @@ test('complete player update matches Java during movement, combat and death', ()
         if (tick === 180 && scenario === 'spikes') {
           player.movement.box.x = 150; player.movement.box.y = 73; player.movement.inAir = false; player.movement.right = true; spikesEnabled = true;
         }
+        if (tick === 180 && scenario === 'potions') {
+          player.movement.box.x = 150; player.movement.box.y = 73; player.movement.inAir = false; player.movement.right = true;
+          player.health = 70; player.power = 100; potionsEnabled = true;
+        }
         if (tick === 180) player.powerAttack();
         if (tick === 240) player.changeHealth(-25);
         if (tick === 360) player.changeHealth(-25, 500);
@@ -60,6 +67,7 @@ test('complete player update matches Java during movement, combat and death', ()
         if (tick === 181 && scenario === 'water') strictEqual(player.animation.state, 6, 'water death begins on the following update');
         if (tick === 180 && scenario === 'spikes') strictEqual(player.health, 0, 'touching spikes kills the moving player');
         if (tick === 181 && scenario === 'spikes') strictEqual(player.animation.state, 6, 'spike death begins on the following update');
+        if (tick === 180 && scenario === 'potions') { strictEqual(player.health, 85); strictEqual(player.power, 50); }
         const m = player.movement, a = player.animation;
         strictEqual([tick, floatBits(m.box.x), floatBits(m.box.y), floatBits(m.airSpeed), m.inAir,
           a.state, a.index, a.tick, player.health, player.power, player.healthWidth, player.powerWidth,

@@ -10,6 +10,7 @@ import levels.LevelManager;
 import main.Game;
 import objects.ObjectManager;
 import objects.Spike;
+import objects.Potion;
 import java.util.ArrayList;
 import sun.misc.Unsafe;
 
@@ -21,6 +22,8 @@ public class PlayerUpdateOracle {
     static FakeLevels levels;
     static FakeLevel level;
     static ObjectManager spikes;
+    static ObjectManager potions;
+    static Player currentPlayer;
     static ArrayList<Spike> spikeList = new ArrayList<>();
 
     static class FakeAudio extends AudioPlayer {
@@ -42,7 +45,8 @@ public class PlayerUpdateOracle {
         FakePlaying() { super(null); }
         public Game getGame() { return PlayerUpdateOracle.game; }
         public LevelManager getLevelManager() { return levels; }
-        public void checkPotionTouched(Rectangle2D.Float box) { events.append("P"); }
+        public Player getPlayer() { return currentPlayer; }
+        public void checkPotionTouched(Rectangle2D.Float box) { events.append("P"); if (potions != null) potions.checkObjectTouched(box); }
         public void checkSpikesTouched(Player player) { events.append("S"); if (spikes != null) spikes.checkSpikesTouched(player); }
         public void checkEnemyHit(Rectangle2D.Float box) { events.append("E"); }
         public void checkObjectHit(Rectangle2D.Float box) { events.append("O"); }
@@ -61,6 +65,7 @@ public class PlayerUpdateOracle {
         level = (FakeLevel) unsafe.allocateInstance(FakeLevel.class);
         FakePlaying playing = (FakePlaying) unsafe.allocateInstance(FakePlaying.class);
         Player player = (Player) unsafe.allocateInstance(Player.class);
+        currentPlayer = player;
         for (int y = 0; y < 14; y++) for (int x = 0; x < 26; x++) tiles[y][x] = y == 2 ? 0 : 11;
         player.hitbox = new Rectangle2D.Float(100, 73, 40, 54);
         player.attackBox = new Rectangle2D.Float(230, 200, 70, 40);
@@ -94,6 +99,14 @@ public class PlayerUpdateOracle {
                 spikeList.add(new Spike(128, 64, 4));
                 spikes = (ObjectManager) unsafe.allocateInstance(ObjectManager.class);
                 Field currentLevel = ObjectManager.class.getDeclaredField("currentLevel"); currentLevel.setAccessible(true); currentLevel.set(spikes, level);
+            }
+            if (tick == 180 && args.length > 0 && args[0].equals("potions")) {
+                player.hitbox.x = 150; player.hitbox.y = 73; player.inAir = false; player.setRight(true);
+                player.currentHealth = 70; field("powerValue").setInt(player, 100);
+                potions = (ObjectManager) unsafe.allocateInstance(ObjectManager.class);
+                Field owner = ObjectManager.class.getDeclaredField("playing"); owner.setAccessible(true); owner.set(potions, playing);
+                Field list = ObjectManager.class.getDeclaredField("potions"); list.setAccessible(true);
+                ArrayList<Potion> items = new ArrayList<>(); items.add(new Potion(150, 73, 0)); items.add(new Potion(150, 73, 1)); list.set(potions, items);
             }
             if (tick == 180) player.powerAttack();
             if (tick == 240) player.changeHealth(-25);
