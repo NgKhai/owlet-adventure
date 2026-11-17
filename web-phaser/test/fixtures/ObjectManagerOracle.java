@@ -58,9 +58,13 @@ public class ObjectManagerOracle {
         Field c = ObjectManager.class.getDeclaredField("containers"); c.setAccessible(true);
         Field shots = ObjectManager.class.getDeclaredField("projectiles"); shots.setAccessible(true);
         for (int tick = 0; tick < 600; tick++) {
+            if (tick == 0 || tick == 280) tiles[1][3] = 0;
+            if (tick == 100 || tick == 330) tiles[1][3] = 11;
+            if (tick == 0 || tick == 200) player.hitbox.x = 1000;
+            if (tick == 40 || tick == 240) player.hitbox.x = 128;
             if (tick % 50 == 0) player.state = 0;
             if (tick == 5 || tick == 305) manager.checkObjectHit(new Rectangle2D.Float(220, 64, 80, 80));
-            if (tick == 10 || tick == 310) manager.checkObjectTouched(player.hitbox);
+            if (tick == 45 || tick == 310) manager.checkObjectTouched(player.hitbox);
             if (tick == 300) manager.resetAllObjects();
             manager.update(tiles, player);
             ArrayList<Potion> potions = (ArrayList<Potion>) p.get(manager);
