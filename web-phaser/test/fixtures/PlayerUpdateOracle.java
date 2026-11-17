@@ -76,9 +76,12 @@ public class PlayerUpdateOracle {
             player.setRight(tick < 80);
             player.setJump(tick >= 20 && tick < 50);
             if (tick == 10 || tick == 100 || tick == 360) player.setAttacking(true);
-            if (tick == 180 && args.length > 0) {
+            if (tick == 180 && args.length > 0 && args[0].equals("airborne-wall")) {
                 player.hitbox.x = 150; player.hitbox.y = 20; player.inAir = true; player.airSpeed = -2;
                 field("flipW").setInt(player, 1); tiles[0][3] = 0; tiles[1][3] = 0;
+            }
+            if (tick == 180 && args.length > 0 && args[0].equals("water")) {
+                player.hitbox.x = 150; player.hitbox.y = 73; player.inAir = false; player.setRight(true); tiles[1][2] = 48;
             }
             if (tick == 180) player.powerAttack();
             if (tick == 240) player.changeHealth(-25);
