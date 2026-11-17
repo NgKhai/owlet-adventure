@@ -171,8 +171,8 @@ class GameScene extends Phaser.Scene {
     buttons.forEach((row, i) => {
       const button = this.image(WIDTH / 2 - 140, (130 + i * 70) * 2, 'buttons', row * 3).setScale(2).setInteractive();
       let pressed = false;
-      button.on('pointerover', () => button.setFrame(row * 3 + (pressed ? 2 : 1)));
-      button.on('pointerout', () => button.setFrame(row * 3 + (pressed ? 2 : 0)));
+      button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 1)); });
+      button.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 0)); });
       this.resetOnPointerUp(button, () => { pressed = false; button.setFrame(row * 3); });
       button.on('pointerdown', () => { pressed = true; button.setFrame(row * 3 + 2); });
       button.on('pointerup', () => {
@@ -252,8 +252,8 @@ class GameScene extends Phaser.Scene {
   private uiButton(target: Phaser.GameObjects.GameObject[], key: string, row: number, x: number, y: number, action: () => void, depth = 0): void {
     const button = this.image(x, y, key, row * 3).setScale(2).setDepth(depth).setInteractive();
     let pressed = false;
-    button.on('pointerover', () => button.setFrame(row * 3 + (pressed ? 2 : 1)));
-    button.on('pointerout', () => button.setFrame(row * 3 + (pressed ? 2 : 0)));
+    button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 1)); });
+    button.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 0)); });
     this.resetOnPointerUp(button, () => { pressed = false; button.setFrame(row * 3); });
     button.on('pointerdown', () => { pressed = true; button.setFrame(row * 3 + 2); });
     button.on('pointerup', () => { if (pressed) action(); });
@@ -266,8 +266,8 @@ class GameScene extends Phaser.Scene {
         .setScale(2).setDepth(depth).setInteractive();
       let pressed = false;
       const frame = (state: number) => button.setFrame(((i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0) + state);
-      button.on('pointerover', () => frame(pressed ? 2 : 1));
-      button.on('pointerout', () => frame(pressed ? 2 : 0));
+      button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) frame(pressed ? 2 : 1); });
+      button.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) frame(pressed ? 2 : 0); });
       this.resetOnPointerUp(button, () => { pressed = false; frame(0); });
       button.on('pointerdown', () => { pressed = true; frame(2); });
       button.on('pointerup', () => {
@@ -286,8 +286,8 @@ class GameScene extends Phaser.Scene {
     const slider = this.add.image(618, 556, 'volume_buttons', 'slider').setOrigin(0).setScale(2).setDepth(depth);
     const knob = this.add.image(this.volumeX - 28, 556, 'volume_buttons', 'knob0').setOrigin(0).setScale(2).setDepth(depth).setInteractive({ draggable: true });
     let knobPressed = false;
-    knob.on('pointerover', () => knob.setFrame(knobPressed ? 'knob2' : 'knob1'));
-    knob.on('pointerout', () => knob.setFrame(knobPressed ? 'knob2' : 'knob0'));
+    knob.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) knob.setFrame(knobPressed ? 'knob2' : 'knob1'); });
+    knob.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) knob.setFrame(knobPressed ? 'knob2' : 'knob0'); });
     knob.on('pointerdown', () => { knobPressed = true; knob.setFrame('knob2'); });
     knob.on('pointerup', () => { knobPressed = false; knob.setFrame('knob0'); });
     this.resetOnPointerUp(knob, () => { knobPressed = false; knob.setFrame('knob0'); });
