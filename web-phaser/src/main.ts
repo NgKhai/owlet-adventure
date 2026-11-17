@@ -51,6 +51,7 @@ class GameScene extends Phaser.Scene {
   private musicMuted = false;
   private effectsMuted = false;
   private audioPressed = [false, false, false];
+  private audioHover = [false, false, false];
   private volume = 0.5;
   private sliderValue = 0;
   private volumeX = 833;
@@ -265,17 +266,16 @@ class GameScene extends Phaser.Scene {
   }
 
   private addAudioControls(target: Phaser.GameObjects.GameObject[], depth = 0): void {
-    const releaseAudio = (pointer: Phaser.Input.Pointer) => !target.some(item => item instanceof Phaser.GameObjects.Image
-      && item.texture.key === 'urm' && item.getBounds().contains(Math.trunc(pointer.x), Math.trunc(pointer.y)));
+    const overNavigation = (x: number, y: number) => target.some(item => item instanceof Phaser.GameObjects.Image
+      && item.texture.key === 'urm' && item.getBounds().contains(Math.trunc(x), Math.trunc(y)));
+    const releaseAudio = (pointer: Phaser.Input.Pointer) => !overNavigation(pointer.x, pointer.y);
+    const buttons: Phaser.GameObjects.Image[] = [];
     for (let i = 0; i < 2; i++) {
       const button = this.image(900, i === 0 ? 280 : 372, 'soundButton', (i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0)
         .setScale(2).setDepth(depth).setInteractive();
       const frame = (state: number) => button.setFrame(((i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0) + state);
-      if (this.audioPressed[i]) frame(2);
-      button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) frame(this.audioPressed[i] ? 2 : 1); });
-      button.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) frame(this.audioPressed[i] ? 2 : 1); });
-      button.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) frame(this.audioPressed[i] ? 2 : 0); });
-      this.resetOnPointerUp(button, () => { this.audioPressed[i] = false; frame(0); }, releaseAudio);
+      frame(this.audioPressed[i] ? 2 : this.audioHover[i] ? 1 : 0);
+      this.resetOnPointerUp(button, () => { this.audioPressed[i] = false; this.audioHover[i] = false; frame(0); }, releaseAudio);
       button.on('pointerdown', () => { this.audioPressed[i] = true; frame(2); });
       button.on('pointerup', () => {
         if (this.audioPressed[i]) {
@@ -288,15 +288,23 @@ class GameScene extends Phaser.Scene {
         }
         this.audioPressed[i] = false; frame(0);
       });
+      buttons.push(button);
       target.push(button);
     }
     const slider = this.add.image(618, 556, 'volume_buttons', 'slider').setOrigin(0).setScale(2).setDepth(depth);
-    const knob = this.add.image(this.volumeX - 28, 556, 'volume_buttons', this.audioPressed[2] ? 'knob2' : 'knob0').setOrigin(0).setScale(2).setDepth(depth).setInteractive();
-    knob.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) knob.setFrame(this.audioPressed[2] ? 'knob2' : 'knob1'); });
-    knob.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) knob.setFrame(this.audioPressed[2] ? 'knob2' : 'knob1'); });
-    knob.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) knob.setFrame(this.audioPressed[2] ? 'knob2' : 'knob0'); });
+    const knob = this.add.image(this.volumeX - 28, 556, 'volume_buttons', this.audioPressed[2] ? 'knob2' : this.audioHover[2] ? 'knob1' : 'knob0').setOrigin(0).setScale(2).setDepth(depth).setInteractive();
     knob.on('pointerdown', () => { this.audioPressed[2] = true; knob.setFrame('knob2'); });
-    this.resetOnPointerUp(knob, () => { this.audioPressed[2] = false; knob.setFrame('knob0'); }, releaseAudio);
+    this.resetOnPointerUp(knob, () => { this.audioPressed[2] = false; this.audioHover[2] = false; knob.setFrame('knob0'); }, releaseAudio);
+    const moveAudio = (x: number, y: number) => {
+      if (overNavigation(x, y)) return;
+      const controls = [...buttons, knob];
+      const over = controls.findIndex(item => item.getBounds().contains(Math.trunc(x), Math.trunc(y)));
+      controls.forEach((item, i) => {
+        this.audioHover[i] = i === over;
+        const state = this.audioPressed[i] ? 2 : this.audioHover[i] ? 1 : 0;
+        item.setFrame(i === 2 ? `knob${state}` : ((i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0) + state);
+      });
+    };
     const changeVolume = (x: number) => {
       this.volumeX = Math.max(646, Math.min(1020, Math.trunc(x)));
       knob.x = this.volumeX - 28;
@@ -310,11 +318,14 @@ class GameScene extends Phaser.Scene {
     };
     const dragInside = (pointer: Phaser.Input.Pointer) => {
       if (this.audioPressed[2] && pointer.isDown) changeVolume(pointer.x);
+      else if (!pointer.isDown) moveAudio(pointer.x, pointer.y);
     };
     this.input.on('pointermove', dragInside);
     const panel = this.game.canvas.parentElement!;
     const dragOutside = (event: MouseEvent) => {
-      if (this.audioPressed[2] && event.buttons && event.target !== this.game.canvas) changeVolume(this.scale.transformX(event.pageX));
+      if (event.target === this.game.canvas) return;
+      if (this.audioPressed[2] && event.buttons) changeVolume(this.scale.transformX(event.pageX));
+      else if (!event.buttons) moveAudio(this.scale.transformX(event.pageX), this.scale.transformY(event.pageY));
     };
     panel.addEventListener('mousemove', dragOutside);
     knob.once('destroy', () => { this.input.off('pointermove', dragInside); panel.removeEventListener('mousemove', dragOutside); });
