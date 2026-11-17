@@ -51,6 +51,7 @@ public class ObjectManagerOracle {
         originalPotions.add(new Potion(128, 64, 0));
         originalContainers.add(new GameContainer(220, 64, 3));
         cannons.add(new Cannon(320, 64, 5));
+        cannons.add(new Cannon(64, 64, 6));
         ObjectManager manager = new ObjectManager(playing);
         manager.loadObjects(level);
         Field p = ObjectManager.class.getDeclaredField("potions"); p.setAccessible(true);
@@ -67,9 +68,10 @@ public class ObjectManagerOracle {
             ArrayList<Projectile> projectiles = (ArrayList<Projectile>) shots.get(manager);
             StringBuilder projectileState = new StringBuilder();
             for (Projectile shot : projectiles) projectileState.append('|').append(Float.floatToIntBits(shot.getHitbox().x)).append(':').append(shot.isActive());
-            System.out.printf("%d,%d,%d,%d,%b,%d,%d,%b,%d,%d,%d,%s%n", tick, player.currentHealth, player.state,
+            System.out.printf("%d,%d,%d,%d,%b,%d,%d,%b,%d,%d,%d,%d,%d,%s%n", tick, player.currentHealth, player.state,
                 potions.size(), potions.get(0).isActive(), containers.get(0).getAniIndex(), containers.get(0).getAniTick(),
-                containers.get(0).isActive(), cannons.get(0).getAniIndex(), cannons.get(0).getAniTick(), projectiles.size(), projectileState);
+                containers.get(0).isActive(), cannons.get(0).getAniIndex(), cannons.get(0).getAniTick(),
+                cannons.get(1).getAniIndex(), cannons.get(1).getAniTick(), projectiles.size(), projectileState);
         }
     }
 }
