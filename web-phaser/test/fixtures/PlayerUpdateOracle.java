@@ -76,6 +76,10 @@ public class PlayerUpdateOracle {
             player.setRight(tick < 80);
             player.setJump(tick >= 20 && tick < 50);
             if (tick == 10 || tick == 100 || tick == 360) player.setAttacking(true);
+            if (tick == 180 && args.length > 0) {
+                player.hitbox.x = 150; player.hitbox.y = 20; player.inAir = true; player.airSpeed = -2;
+                field("flipW").setInt(player, 1); tiles[0][3] = 0; tiles[1][3] = 0;
+            }
             if (tick == 180) player.powerAttack();
             if (tick == 240) player.changeHealth(-25);
             if (tick == 360) player.changeHealth(-25, attacker);
