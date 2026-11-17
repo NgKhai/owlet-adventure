@@ -2,8 +2,13 @@ import { TILE_SIZE } from './level.ts';
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
+function tileAt(x: number, y: number, level: number[][]): number {
+  if (y < 0 || y >= level.length || x < 0 || x >= level[y].length) throw new RangeError('Tile outside level');
+  return level[y][x];
+}
+
 export function isTileSolid(x: number, y: number, level: number[][]): boolean {
-  const value = level[y][x];
+  const value = tileAt(x, y, level);
   return value !== 11 && value !== 48 && value !== 49;
 }
 
@@ -27,12 +32,8 @@ export function isEntityOnFloor(box: Rect, level: number[][]): boolean {
 
 export function isEntityInWater(box: Rect, level: number[][]): boolean {
   const y = Math.trunc(Math.fround(box.y + box.height) / TILE_SIZE);
-  const tile = (x: number) => {
-    if (y < 0 || y >= level.length || x < 0 || x >= level[y].length) throw new RangeError('Tile outside level');
-    return level[y][x];
-  };
-  return tile(Math.trunc(box.x / TILE_SIZE)) === 48
-    || tile(Math.trunc(Math.fround(box.x + box.width) / TILE_SIZE)) === 48;
+  return tileAt(Math.trunc(box.x / TILE_SIZE), y, level) === 48
+    || tileAt(Math.trunc(Math.fround(box.x + box.width) / TILE_SIZE), y, level) === 48;
 }
 
 export function isAllTilesClear(start: number, end: number, y: number, level: number[][]): boolean {
