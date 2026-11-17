@@ -13,6 +13,19 @@ test('a dragged mouse press does not generate a click, even if it returns to the
   strictEqual(clicks.release(2), true);
 });
 
+test('mouse buttons retain separate clicks until a drag cancels them', () => {
+  const clicks = new MouseClicks();
+  clicks.press(0, 10, 10);
+  clicks.press(2, 10, 10);
+  strictEqual(clicks.release(0), true);
+  strictEqual(clicks.release(2), true);
+  clicks.press(0, 10, 10);
+  clicks.press(2, 10, 10);
+  clicks.move(11, 10, true);
+  strictEqual(clicks.release(0), false);
+  strictEqual(clicks.release(2), false);
+});
+
 test('active playing updates systems in the Java order even when enemies complete the level', () => {
   const calls: string[] = [];
   const steps: PlayingSteps = {
