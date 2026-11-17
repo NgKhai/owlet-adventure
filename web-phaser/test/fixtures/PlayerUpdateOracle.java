@@ -8,6 +8,9 @@ import java.lang.reflect.Field;
 import levels.Level;
 import levels.LevelManager;
 import main.Game;
+import objects.ObjectManager;
+import objects.Spike;
+import java.util.ArrayList;
 import sun.misc.Unsafe;
 
 public class PlayerUpdateOracle {
@@ -17,6 +20,8 @@ public class PlayerUpdateOracle {
     static FakeGame game;
     static FakeLevels levels;
     static FakeLevel level;
+    static ObjectManager spikes;
+    static ArrayList<Spike> spikeList = new ArrayList<>();
 
     static class FakeAudio extends AudioPlayer {
         public void playEffect(int effect) { events.append(effect == JUMP ? "J" : effect == DIE ? "D" : "G"); }
@@ -27,6 +32,7 @@ public class PlayerUpdateOracle {
     static class FakeLevel extends Level {
         FakeLevel() { super(new BufferedImage(26, 14, BufferedImage.TYPE_INT_RGB)); }
         public int[][] getLevelData() { return tiles; }
+        public ArrayList<Spike> getSpikes() { return spikeList; }
     }
     static class FakeLevels extends LevelManager {
         FakeLevels() { super(null); }
@@ -37,7 +43,7 @@ public class PlayerUpdateOracle {
         public Game getGame() { return PlayerUpdateOracle.game; }
         public LevelManager getLevelManager() { return levels; }
         public void checkPotionTouched(Rectangle2D.Float box) { events.append("P"); }
-        public void checkSpikesTouched(Player player) { events.append("S"); }
+        public void checkSpikesTouched(Player player) { events.append("S"); if (spikes != null) spikes.checkSpikesTouched(player); }
         public void checkEnemyHit(Rectangle2D.Float box) { events.append("E"); }
         public void checkObjectHit(Rectangle2D.Float box) { events.append("O"); }
         public void setPlayerDying(boolean dying) { events.append("D"); }
@@ -82,6 +88,12 @@ public class PlayerUpdateOracle {
             }
             if (tick == 180 && args.length > 0 && args[0].equals("water")) {
                 player.hitbox.x = 150; player.hitbox.y = 73; player.inAir = false; player.setRight(true); tiles[1][2] = 48;
+            }
+            if (tick == 180 && args.length > 0 && args[0].equals("spikes")) {
+                player.hitbox.x = 150; player.hitbox.y = 73; player.inAir = false; player.setRight(true);
+                spikeList.add(new Spike(128, 64, 4));
+                spikes = (ObjectManager) unsafe.allocateInstance(ObjectManager.class);
+                Field currentLevel = ObjectManager.class.getDeclaredField("currentLevel"); currentLevel.setAccessible(true); currentLevel.set(spikes, level);
             }
             if (tick == 180) player.powerAttack();
             if (tick == 240) player.changeHealth(-25);
