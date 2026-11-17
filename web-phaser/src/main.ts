@@ -199,7 +199,8 @@ class GameScene extends Phaser.Scene {
   private clearMenuItems(): void { for (const item of this.menuItems) item.destroy(); this.menuItems = []; }
 
   private resetOnPointerUp(item: Phaser.GameObjects.GameObject, reset: () => void, shouldReset: (pointer: Phaser.Input.Pointer) => boolean = () => true): void {
-    const onUp = (pointer: Phaser.Input.Pointer) => { if (shouldReset(pointer)) reset(); };
+    const creationEvent = this.input.activePointer.event;
+    const onUp = (pointer: Phaser.Input.Pointer) => { if (pointer.event !== creationEvent && shouldReset(pointer)) reset(); };
     this.input.on('pointerup', onUp);
     this.input.on('pointerupoutside', onUp);
     item.once('destroy', () => {
