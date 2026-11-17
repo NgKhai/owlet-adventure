@@ -129,16 +129,30 @@ class GameScene extends Phaser.Scene {
     });
     this.input.keyboard!.on('keyup-ESC', () => { if (this.mode === 'credits') this.showMenuFromScreen(true); });
     this.game.events.on('blur', () => { if (this.mode === 'playing') { this.player.left = false; this.player.right = false; } });
-    this.game.canvas.addEventListener('contextmenu', event => event.preventDefault());
+    const panel = this.game.canvas.parentElement!;
+    const preventContextMenu = (event: MouseEvent) => event.preventDefault();
     const clicks = new MouseClicks();
+    const moveOutside = (event: MouseEvent) => {
+      if (event.target !== this.game.canvas) clicks.move(this.scale.transformX(event.pageX), this.scale.transformY(event.pageY), event.buttons !== 0);
+    };
+    panel.addEventListener('contextmenu', preventContextMenu);
+    panel.addEventListener('mousemove', moveOutside);
+    this.events.once('shutdown', () => {
+      panel.removeEventListener('contextmenu', preventContextMenu);
+      panel.removeEventListener('mousemove', moveOutside);
+    });
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => clicks.press(pointer.button, pointer.x, pointer.y));
+    this.input.on('pointerdownoutside', (pointer: Phaser.Input.Pointer) => {
+      if (pointer.downElement && panel.contains(pointer.downElement)) clicks.press(pointer.button, pointer.x, pointer.y);
+    });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => clicks.move(pointer.x, pointer.y, pointer.isDown));
-    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => clicks.release(pointer.button));
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      if (!clicks.release(pointer.button) || !canHandleClick(this.mode === 'playing', this.overlay)) return;
+    const release = (pointer: Phaser.Input.Pointer, inside: boolean) => {
+      if (!clicks.release(pointer.button) || !inside || !canHandleClick(this.mode === 'playing', this.overlay)) return;
       if (pointer.button === 0) this.animation.attacking = true;
       else if (pointer.button === 2) this.character.powerAttack();
-    });
+    };
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => release(pointer, !!pointer.upElement && panel.contains(pointer.upElement)));
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => release(pointer, true));
     this.showMenu();
     this.playSong('menuMusic');
   }
