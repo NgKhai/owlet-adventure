@@ -85,6 +85,11 @@ class GameScene extends Phaser.Scene {
   private get player() { return this.character.movement; }
   private get animation() { return this.character.animation; }
 
+  private gamePoint(pointer: Phaser.Input.Pointer) {
+    const camera = this.cameras.main;
+    return { x: (pointer.x - camera.x) / camera.zoom, y: (pointer.y - camera.y) / camera.zoom };
+  }
+
   preload(): void {
     for (const name of ['background_menu', 'menu_background', 'playing_bg_img', 'big_clouds', 'small_clouds', 'water', 'health_power_bar', 'trap_atlas', 'ball', 'death_screen', 'completed_sprite', 'game_completed', 'pause_menu', 'options_background', 'credits_list', 'volume_buttons', 'rain_particle'])
       this.load.image(name, `${ASSET}${name}.png`);
@@ -114,6 +119,18 @@ class GameScene extends Phaser.Scene {
   }
 
   create(): void {
+    const resizeCamera = (size: Phaser.Structs.Size) => {
+      const zoom = Math.min(size.width / WIDTH, size.height / HEIGHT);
+      if (zoom <= 0) return;
+      const width = WIDTH * zoom;
+      const height = HEIGHT * zoom;
+      // Fractional viewport sizes can cut off the first row or column in WebGL.
+      this.cameras.main.setViewport(Math.floor((size.width - width) / 2), Math.floor((size.height - height) / 2),
+        Math.ceil(width), Math.ceil(height)).setOrigin(0, 0).setZoom(zoom);
+    };
+    this.scale.on('resize', resizeCamera);
+    this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
+    resizeCamera(this.scale.gameSize);
     this.sound.pauseOnBlur = false;
     for (const [key, field] of [['A', 'left'], ['D', 'right'], ['SPACE', 'jump']] as const) {
       this.input.keyboard!.on(`keydown-${key}`, () => {
@@ -133,30 +150,19 @@ class GameScene extends Phaser.Scene {
     });
     this.input.keyboard!.on('keyup-ESC', () => { if (this.mode === 'credits') this.showMenuFromScreen(true); });
     this.game.events.on('blur', () => { if (this.mode === 'playing') { this.player.left = false; this.player.right = false; } });
-    const panel = this.game.canvas.parentElement!;
+    const canvas = this.game.canvas;
     const preventContextMenu = (event: MouseEvent) => event.preventDefault();
     const clicks = new MouseClicks();
-    const moveOutside = (event: MouseEvent) => {
-      if (event.target !== this.game.canvas) clicks.move(this.scale.transformX(event.pageX), this.scale.transformY(event.pageY), event.buttons !== 0);
-    };
-    panel.addEventListener('contextmenu', preventContextMenu);
-    panel.addEventListener('mousemove', moveOutside);
-    this.events.once('shutdown', () => {
-      panel.removeEventListener('contextmenu', preventContextMenu);
-      panel.removeEventListener('mousemove', moveOutside);
-    });
+    canvas.addEventListener('contextmenu', preventContextMenu);
+    this.events.once('shutdown', () => canvas.removeEventListener('contextmenu', preventContextMenu));
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => clicks.press(pointer.button, pointer.x, pointer.y));
-    this.input.on('pointerdownoutside', (pointer: Phaser.Input.Pointer) => {
-      if (pointer.downElement && panel.contains(pointer.downElement)) clicks.press(pointer.button, pointer.x, pointer.y);
-    });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => clicks.move(pointer.x, pointer.y, pointer.isDown));
-    const release = (pointer: Phaser.Input.Pointer, inside: boolean) => {
-      if (!clicks.release(pointer.button) || !inside || !canHandleClick(this.mode === 'playing', this.overlay)) return;
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => clicks.release(pointer.button));
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      if (!clicks.release(pointer.button) || !canHandleClick(this.mode === 'playing', this.overlay)) return;
       if (pointer.button === 0) this.animation.attacking = true;
       else if (pointer.button === 2) this.character.powerAttack();
-    };
-    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => release(pointer, !!pointer.upElement && panel.contains(pointer.upElement)));
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => release(pointer, true));
+    });
     this.showMenu();
     this.playSong('menuMusic');
   }
@@ -265,14 +271,12 @@ class GameScene extends Phaser.Scene {
       this.buttonHover.set(id, over);
       button.setFrame(row * 3 + (pressed ? 2 : over ? 1 : 0));
     };
-    const moveInside = (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) move(pointer.x, pointer.y); };
-    const panel = this.game.canvas.parentElement!;
-    const moveOutside = (event: MouseEvent) => {
-      if (!event.buttons && event.target !== this.game.canvas) move(this.scale.transformX(event.pageX), this.scale.transformY(event.pageY));
+    const movePointer = (pointer: Phaser.Input.Pointer) => {
+      const { x, y } = this.gamePoint(pointer);
+      if (!pointer.isDown) move(x, y);
     };
-    this.input.on('pointermove', moveInside);
-    panel.addEventListener('mousemove', moveOutside);
-    button.once('destroy', () => { this.input.off('pointermove', moveInside); panel.removeEventListener('mousemove', moveOutside); });
+    this.input.on('pointermove', movePointer);
+    button.once('destroy', () => this.input.off('pointermove', movePointer));
     const reset = () => { pressed = false; this.buttonPressed.set(id, false); this.buttonHover.set(id, false); button.setFrame(row * 3); };
     this.resetOnPointerUp(button, reset);
     button.on('pointerdown', () => { pressed = true; this.buttonPressed.set(id, true); button.setFrame(row * 3 + 2); });
@@ -283,7 +287,10 @@ class GameScene extends Phaser.Scene {
   private addAudioControls(target: Phaser.GameObjects.GameObject[], depth = 0): void {
     const overNavigation = (x: number, y: number) => target.some(item => item instanceof Phaser.GameObjects.Image
       && item.texture.key === 'urm' && item.getBounds().contains(Math.trunc(x), Math.trunc(y)));
-    const releaseAudio = (pointer: Phaser.Input.Pointer) => !overNavigation(pointer.x, pointer.y);
+    const releaseAudio = (pointer: Phaser.Input.Pointer) => {
+      const { x, y } = this.gamePoint(pointer);
+      return !overNavigation(x, y);
+    };
     const buttons: Phaser.GameObjects.Image[] = [];
     for (let i = 0; i < 2; i++) {
       const button = this.image(900, i === 0 ? 280 : 372, 'soundButton', (i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0)
@@ -331,19 +338,13 @@ class GameScene extends Phaser.Scene {
         for (const effect of this.effects.values()) effect.setVolume(audioVolume(this.volume));
       }
     };
-    const dragInside = (pointer: Phaser.Input.Pointer) => {
-      if (this.audioPressed[2] && pointer.isDown) changeVolume(pointer.x);
-      else if (!pointer.isDown) moveAudio(pointer.x, pointer.y);
+    const movePointer = (pointer: Phaser.Input.Pointer) => {
+      const { x, y } = this.gamePoint(pointer);
+      if (!pointer.isDown) moveAudio(x, y);
+      else if (this.audioPressed[2]) changeVolume(x);
     };
-    this.input.on('pointermove', dragInside);
-    const panel = this.game.canvas.parentElement!;
-    const dragOutside = (event: MouseEvent) => {
-      if (event.target === this.game.canvas) return;
-      if (this.audioPressed[2] && event.buttons) changeVolume(this.scale.transformX(event.pageX));
-      else if (!event.buttons) moveAudio(this.scale.transformX(event.pageX), this.scale.transformY(event.pageY));
-    };
-    panel.addEventListener('mousemove', dragOutside);
-    knob.once('destroy', () => { this.input.off('pointermove', dragInside); panel.removeEventListener('mousemove', dragOutside); });
+    this.input.on('pointermove', movePointer);
+    knob.once('destroy', () => this.input.off('pointermove', movePointer));
     target.push(slider, knob);
   }
 
@@ -613,6 +614,6 @@ class GameScene extends Phaser.Scene {
   }
 }
 
-new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: WIDTH, height: HEIGHT, pixelArt: true,
+new Phaser.Game({ type: Phaser.AUTO, parent: 'game', width: WIDTH, height: HEIGHT, pixelArt: true, backgroundColor: '#eeeeee',
   fps: { smoothStep: false },
-  scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH }, scene: GameScene });
+  scale: { mode: Phaser.Scale.RESIZE }, scene: GameScene });
