@@ -15,6 +15,10 @@ export function containsRect(rect: { x: number; y: number; width: number; height
   return rect.width > 0 && rect.height > 0 && x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
 }
 
+export function centerOffset(size: number, gameSize: number, zoom: number): number {
+  return Math.trunc((size - gameSize * zoom) / 2);
+}
+
 export function cameraOffset(playerX: number, offset: number, maxOffset: number): number {
   const diff = Math.trunc(playerX) - offset;
   if (diff > 1248) offset += diff - 1248;

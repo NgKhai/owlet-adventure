@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import { deepStrictEqual, strictEqual } from 'node:assert';
-import { MouseClicks, canHandleClick, canHandleKey, containsRect, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, centerOffset, containsRect, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+
+test('centering truncates small negative floating-point errors like Java', () => {
+  strictEqual(Math.abs(centerOffset(864, 1664, 864 / 1664)), 0);
+  strictEqual(Math.abs(centerOffset(900, 896, 900 / 896)), 0);
+  strictEqual(centerOffset(900, 896, 600 / 1664), 288);
+});
 
 test('button hitboxes include the top and left edges but exclude the bottom and right edges', () => {
   const bounds = { x: 10, y: 20, width: 30, height: 40 };

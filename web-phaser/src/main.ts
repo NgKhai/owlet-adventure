@@ -6,7 +6,7 @@ import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, containsRect, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -135,12 +135,10 @@ class GameScene extends Phaser.Scene {
     const resizeCamera = (size: Phaser.Structs.Size) => {
       const zoom = Math.min(size.width / WIDTH, size.height / HEIGHT);
       if (zoom <= 0) return;
-      const width = WIDTH * zoom;
-      const height = HEIGHT * zoom;
       // Java clips to the window, so objects can extend beyond the game area.
       this.cameras.main.roundPixels = false;
       this.cameras.main.setViewport(0, 0, size.width, size.height).setOrigin(0, 0).setZoom(zoom)
-        .setScroll(-Math.floor((size.width - width) / 2) / zoom, -Math.floor((size.height - height) / 2) / zoom);
+        .setScroll(-centerOffset(size.width, WIDTH, zoom) / zoom, -centerOffset(size.height, HEIGHT, zoom) / zoom);
       if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
     };
     this.scale.on('resize', resizeCamera);
