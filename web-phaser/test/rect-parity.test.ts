@@ -13,7 +13,7 @@ test('status bar raster bounds match Java at different scales and offsets', () =
     const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'RectOracle.java');
     execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
     const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'RectOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
-    strictEqual(lines.length, 450);
+    strictEqual(lines.length, 3510);
     for (const line of lines) {
       const [zoom, offset, x, width, first, last] = line.split(',').map(Number);
       const rect = javaFillRect(x, 0, width, 4, zoom, offset, 0);
