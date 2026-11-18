@@ -1,6 +1,16 @@
 import { test } from 'node:test';
 import { deepStrictEqual, strictEqual } from 'node:assert';
-import { MouseClicks, canHandleClick, canHandleKey, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, containsRect, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+
+test('button hitboxes include the top and left edges but exclude the bottom and right edges', () => {
+  const bounds = { x: 10, y: 20, width: 30, height: 40 };
+  strictEqual(containsRect(bounds, 10, 20), true);
+  strictEqual(containsRect(bounds, 39.9, 59.9), true);
+  strictEqual(containsRect(bounds, 40, 30), false);
+  strictEqual(containsRect(bounds, 20, 60), false);
+  strictEqual(containsRect(bounds, 9.9, 20), false);
+  strictEqual(containsRect({ ...bounds, width: 0 }, 10, 20), false);
+});
 
 test('a dragged mouse press does not generate a click, even if it returns to the start', () => {
   const clicks = new MouseClicks();

@@ -6,7 +6,7 @@ import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { MouseClicks, canHandleClick, canHandleKey, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, containsRect, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -186,6 +186,10 @@ class GameScene extends Phaser.Scene {
     return this.add.image(x, y, key, frame).setOrigin(0);
   }
 
+  private interactive(image: Phaser.GameObjects.Image): Phaser.GameObjects.Image {
+    return image.setInteractive(new Phaser.Geom.Rectangle(0, 0, image.width, image.height), containsRect);
+  }
+
   private showMenu(): void {
     this.mode = 'menu';
     this.menuItems.push(this.image(0, 0, 'background_menu').setDisplaySize(WIDTH, HEIGHT));
@@ -194,7 +198,7 @@ class GameScene extends Phaser.Scene {
     this.menuItems.push(panel);
     const buttons = [0, 1, 3, 2];
     buttons.forEach((row, i) => {
-      const button = this.image(WIDTH / 2 - 140, (130 + i * 70) * 2, 'buttons', row * 3).setScale(2).setInteractive();
+      const button = this.interactive(this.image(WIDTH / 2 - 140, (130 + i * 70) * 2, 'buttons', row * 3).setScale(2));
       let pressed = false;
       button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 1)); });
       button.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 1)); });
@@ -280,9 +284,9 @@ class GameScene extends Phaser.Scene {
   private uiButton(target: Phaser.GameObjects.GameObject[], key: string, row: number, x: number, y: number, action: () => void, depth = 0): void {
     const id = `${this.mode}:${this.overlay}:${key}:${row}:${x}:${y}`;
     let pressed = this.buttonPressed.get(id) ?? false;
-    const button = this.image(x, y, key, row * 3 + (pressed ? 2 : this.buttonHover.get(id) ? 1 : 0)).setScale(2).setDepth(depth).setInteractive();
+    const button = this.interactive(this.image(x, y, key, row * 3 + (pressed ? 2 : this.buttonHover.get(id) ? 1 : 0)).setScale(2).setDepth(depth));
     const move = (x: number, y: number) => {
-      const over = button.getBounds().contains(Math.trunc(x), Math.trunc(y));
+      const over = containsRect(button.getBounds(), Math.trunc(x), Math.trunc(y));
       this.buttonHover.set(id, over);
       button.setFrame(row * 3 + (pressed ? 2 : over ? 1 : 0));
     };
@@ -301,15 +305,15 @@ class GameScene extends Phaser.Scene {
 
   private addAudioControls(target: Phaser.GameObjects.GameObject[], depth = 0): void {
     const overNavigation = (x: number, y: number) => target.some(item => item instanceof Phaser.GameObjects.Image
-      && item.texture.key === 'urm' && item.getBounds().contains(Math.trunc(x), Math.trunc(y)));
+      && item.texture.key === 'urm' && containsRect(item.getBounds(), Math.trunc(x), Math.trunc(y)));
     const releaseAudio = (pointer: Phaser.Input.Pointer) => {
       const { x, y } = this.gamePoint(pointer);
       return !overNavigation(x, y);
     };
     const buttons: Phaser.GameObjects.Image[] = [];
     for (let i = 0; i < 2; i++) {
-      const button = this.image(900, i === 0 ? 280 : 372, 'soundButton', (i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0)
-        .setScale(2).setDepth(depth).setInteractive();
+      const button = this.interactive(this.image(900, i === 0 ? 280 : 372, 'soundButton', (i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0)
+        .setScale(2).setDepth(depth));
       const frame = (state: number) => button.setFrame(((i === 0 ? this.musicMuted : this.effectsMuted) ? 3 : 0) + state);
       frame(this.audioPressed[i] ? 2 : this.audioHover[i] ? 1 : 0);
       this.resetOnPointerUp(button, () => { this.audioPressed[i] = false; this.audioHover[i] = false; frame(0); }, releaseAudio);
@@ -329,13 +333,13 @@ class GameScene extends Phaser.Scene {
       target.push(button);
     }
     const slider = this.add.image(618, 556, 'volume_buttons', 'slider').setOrigin(0).setScale(2).setDepth(depth);
-    const knob = this.add.image(this.volumeX - 28, 556, 'volume_buttons', this.audioPressed[2] ? 'knob2' : this.audioHover[2] ? 'knob1' : 'knob0').setOrigin(0).setScale(2).setDepth(depth).setInteractive();
+    const knob = this.interactive(this.add.image(this.volumeX - 28, 556, 'volume_buttons', this.audioPressed[2] ? 'knob2' : this.audioHover[2] ? 'knob1' : 'knob0').setOrigin(0).setScale(2).setDepth(depth));
     knob.on('pointerdown', () => { this.audioPressed[2] = true; knob.setFrame('knob2'); });
     this.resetOnPointerUp(knob, () => { this.audioPressed[2] = false; this.audioHover[2] = false; knob.setFrame('knob0'); }, releaseAudio);
     const moveAudio = (x: number, y: number) => {
       if (overNavigation(x, y)) return;
       const controls = [...buttons, knob];
-      const over = controls.findIndex(item => item.getBounds().contains(Math.trunc(x), Math.trunc(y)));
+      const over = controls.findIndex(item => containsRect(item.getBounds(), Math.trunc(x), Math.trunc(y)));
       controls.forEach((item, i) => {
         this.audioHover[i] = i === over;
         const state = this.audioPressed[i] ? 2 : this.audioHover[i] ? 1 : 0;

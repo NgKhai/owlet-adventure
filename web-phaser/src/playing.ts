@@ -11,6 +11,10 @@ export type PlayingSteps = {
 
 export type PlayingOverlay = 'none' | 'pause' | 'gameOver' | 'levelCompleted' | 'gameCompleted';
 
+export function containsRect(rect: { x: number; y: number; width: number; height: number }, x: number, y: number): boolean {
+  return rect.width > 0 && rect.height > 0 && x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
+}
+
 export function javaFillRect(x: number, y: number, width: number, height: number, zoom: number, offsetX: number, offsetY: number) {
   const left = Math.floor(x * zoom + offsetX + 0.25);
   const top = Math.floor(y * zoom + offsetY + 0.25);
