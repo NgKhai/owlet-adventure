@@ -6,7 +6,7 @@ import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { MouseClicks, canHandleClick, canHandleKey, containsRect, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, containsRect, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -505,10 +505,7 @@ class GameScene extends Phaser.Scene {
   }
 
   private updateCamera(): void {
-    const diff = Math.trunc(this.player.box.x) - this.offset;
-    if (diff > 1248) this.offset += diff - 1248;
-    else if (diff < 416) this.offset += diff - 416;
-    this.offset = Math.max(Math.min(this.offset, this.level.offset), 0);
+    this.offset = cameraOffset(this.player.box.x, this.offset, this.level.offset);
   }
 
   private updateShip(): void {

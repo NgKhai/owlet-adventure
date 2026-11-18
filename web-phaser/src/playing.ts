@@ -15,6 +15,13 @@ export function containsRect(rect: { x: number; y: number; width: number; height
   return rect.width > 0 && rect.height > 0 && x >= rect.x && x < rect.x + rect.width && y >= rect.y && y < rect.y + rect.height;
 }
 
+export function cameraOffset(playerX: number, offset: number, maxOffset: number): number {
+  const diff = Math.trunc(playerX) - offset;
+  if (diff > 1248) offset += diff - 1248;
+  else if (diff < 416) offset += diff - 416;
+  return Math.max(Math.min(offset, maxOffset), 0);
+}
+
 export function javaFillRect(x: number, y: number, width: number, height: number, zoom: number, offsetX: number, offsetY: number) {
   const left = Math.floor(x * zoom + offsetX + 0.25);
   const top = Math.floor(y * zoom + offsetY + 0.25);
