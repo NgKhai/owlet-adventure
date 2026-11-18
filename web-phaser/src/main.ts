@@ -6,11 +6,13 @@ import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, spriteTopEdge, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
 const ASSET = import.meta.env.BASE_URL;
+
+type Tree = { x: number; y: number; type: number; tick: number; frame: number; image: Phaser.GameObjects.Image; edge?: Phaser.GameObjects.Image };
 
 class GameScene extends Phaser.Scene {
   private mode: 'menu' | 'playing' | 'options' | 'credits' = 'menu';
@@ -37,12 +39,12 @@ class GameScene extends Phaser.Scene {
   private enemies: { enemy: Enemy; image: Phaser.GameObjects.Image }[] = [];
   private enemyLevels = new Map<number, Enemy[]>();
   private objectLevels = new Map<number, ObjectManager>();
-  private treeLevels = new Map<number, { x: number; y: number; type: number; tick: number; frame: number; image: Phaser.GameObjects.Image }[]>();
+  private treeLevels = new Map<number, Tree[]>();
   private healthBar!: Phaser.GameObjects.Rectangle;
   private powerBar!: Phaser.GameObjects.Rectangle;
   private objects!: ObjectManager;
   private objectImages = new Map<GameObject | Projectile, Phaser.GameObjects.Image>();
-  private trees: { x: number; y: number; type: number; tick: number; frame: number; image: Phaser.GameObjects.Image }[] = [];
+  private trees: Tree[] = [];
   private playerSpawn?: { x: number; y: number };
   private levelIndex = 0;
   private playerDying = false;
@@ -143,6 +145,7 @@ class GameScene extends Phaser.Scene {
       this.cameras.main.setViewport(0, 0, size.width, size.height).setOrigin(0, 0).setZoom(zoom)
         .setScroll(-centerOffset(size.width, WIDTH, zoom) / zoom, -centerOffset(size.height, HEIGHT, zoom) / zoom);
       if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
+      this.updateTreeEdges();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -434,6 +437,10 @@ class GameScene extends Phaser.Scene {
       }
       this.treeLevels.set(this.levelIndex, this.trees);
     }
+    this.trees.forEach((tree, i) => {
+      tree.image.setDepth(50 + i * 0.001);
+      tree.edge = this.image(0, 0, tree.type === 7 ? 'tree1' : 'tree2', 0).setDepth(50 + i * 0.001 + 0.0005).setVisible(false);
+    });
     this.worldItems.push(this.image(20, 20, 'health_power_bar').setDisplaySize(384, 116).setDepth(41));
     this.healthBar = this.add.rectangle(88, 48, 300, 8, 0xff0000).setOrigin(0).setDepth(41);
     this.powerBar = this.add.rectangle(108, 88, 208, 4, 0xffff00).setOrigin(0).setDepth(41);
@@ -582,7 +589,7 @@ class GameScene extends Phaser.Scene {
     for (const item of this.overlayItems) item.destroy();
     for (const item of this.worldItems) item.destroy();
     for (const image of this.objectImages.values()) image.destroy();
-    for (const tree of this.trees) tree.image.destroy();
+    for (const tree of this.trees) { tree.image.destroy(); tree.edge?.destroy(); }
     for (const image of this.rainImages) image.destroy();
     for (const image of this.dialogueImages.values()) image.destroy();
     this.rainImages = []; this.dialogueImages.clear(); this.dialogue.clear();
@@ -629,6 +636,21 @@ class GameScene extends Phaser.Scene {
       const x = tree.type === 7 ? tree.x - 7 : tree.type === 8 ? tree.x + 25 : tree.x + 38 - 124;
       const y = tree.type === 7 ? tree.y - 56 : tree.y - 57;
       tree.image.setPosition(x - this.offset, y).setFrame(tree.frame).setFlipX(tree.type === 9);
+    }
+    this.updateTreeEdges();
+  }
+
+  private updateTreeEdges(): void {
+    const camera = this.cameras.main;
+    const zoom = camera.zoom;
+    const offsetY = Math.round(-camera.scrollY * zoom);
+    for (const tree of this.trees) {
+      if (!tree.edge) continue;
+      // shortcut: corrects tree top edges only; other sprite sampling still differs from Java.
+      const y = spriteTopEdge(tree.image.y, zoom, offsetY);
+      tree.edge.setVisible(y !== undefined);
+      if (y !== undefined) tree.edge.setPosition(tree.image.x, y).setScale(2, 1 / zoom)
+        .setFrame(tree.frame).setFlipX(tree.type === 9).setCrop(0, 0, tree.image.width, 1);
     }
   }
 }

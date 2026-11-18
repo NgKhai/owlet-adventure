@@ -1,6 +1,12 @@
 import { test } from 'node:test';
 import { deepStrictEqual, strictEqual } from 'node:assert';
-import { MouseClicks, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, spriteTopEdge, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+
+test('sprite top edge covers a pixel centered exactly on its boundary', () => {
+  const zoom = 600 / 1664;
+  strictEqual(spriteTopEdge(520, zoom, 288), (475 - 288) / zoom);
+  strictEqual(spriteTopEdge(521, zoom, 288), undefined);
+});
 
 test('mouse coordinates subtract the letterbox offset before scaling as Java does', () => {
   strictEqual(Math.trunc(gameCoordinate(852, 93, 736 / 896)), 924);

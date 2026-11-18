@@ -23,6 +23,11 @@ export function gameCoordinate(position: number, offset: number, zoom: number): 
   return (position - offset) / zoom;
 }
 
+export function spriteTopEdge(y: number, zoom: number, offset: number): number | undefined {
+  const top = y * zoom + offset;
+  return Math.abs(top - Math.floor(top) - 0.5) < 1e-8 ? (Math.floor(top) - offset) / zoom : undefined;
+}
+
 export function cameraOffset(playerX: number, offset: number, maxOffset: number): number {
   const diff = Math.trunc(playerX) - offset;
   if (diff > 1248) offset += diff - 1248;
