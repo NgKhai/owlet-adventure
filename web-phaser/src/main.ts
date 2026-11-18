@@ -87,7 +87,7 @@ class GameScene extends Phaser.Scene {
 
   private gamePoint(pointer: Phaser.Input.Pointer) {
     const camera = this.cameras.main;
-    return { x: (pointer.x - camera.x) / camera.zoom, y: (pointer.y - camera.y) / camera.zoom };
+    return { x: pointer.x / camera.zoom + camera.scrollX, y: pointer.y / camera.zoom + camera.scrollY };
   }
 
   preload(): void {
@@ -124,9 +124,10 @@ class GameScene extends Phaser.Scene {
       if (zoom <= 0) return;
       const width = WIDTH * zoom;
       const height = HEIGHT * zoom;
-      // Fractional viewport sizes can cut off the first row or column in WebGL.
-      this.cameras.main.setViewport(Math.floor((size.width - width) / 2), Math.floor((size.height - height) / 2),
-        Math.ceil(width), Math.ceil(height)).setOrigin(0, 0).setZoom(zoom);
+      // Java clips to the window, so objects can extend beyond the game area.
+      this.cameras.main.roundPixels = false;
+      this.cameras.main.setViewport(0, 0, size.width, size.height).setOrigin(0, 0).setZoom(zoom)
+        .setScroll(-Math.floor((size.width - width) / 2) / zoom, -Math.floor((size.height - height) / 2) / zoom);
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
