@@ -19,6 +19,10 @@ export function centerOffset(size: number, gameSize: number, zoom: number): numb
   return Math.trunc((size - gameSize * zoom) / 2);
 }
 
+export function gameCoordinate(position: number, offset: number, zoom: number): number {
+  return (position - offset) / zoom;
+}
+
 export function cameraOffset(playerX: number, offset: number, maxOffset: number): number {
   const diff = Math.trunc(playerX) - offset;
   if (diff > 1248) offset += diff - 1248;

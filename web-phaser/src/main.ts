@@ -6,7 +6,7 @@ import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -100,7 +100,10 @@ class GameScene extends Phaser.Scene {
 
   private gamePoint(pointer: Phaser.Input.Pointer) {
     const camera = this.cameras.main;
-    return { x: pointer.x / camera.zoom + camera.scrollX, y: pointer.y / camera.zoom + camera.scrollY };
+    return {
+      x: gameCoordinate(pointer.x, Math.round(-camera.scrollX * camera.zoom), camera.zoom),
+      y: gameCoordinate(pointer.y, Math.round(-camera.scrollY * camera.zoom), camera.zoom),
+    };
   }
 
   preload(): void {
@@ -185,7 +188,10 @@ class GameScene extends Phaser.Scene {
   }
 
   private interactive(image: Phaser.GameObjects.Image): Phaser.GameObjects.Image {
-    return image.setInteractive(new Phaser.Geom.Rectangle(0, 0, image.width, image.height), containsRect);
+    return image.setInteractive(new Phaser.Geom.Rectangle(0, 0, image.width, image.height), () => {
+      const { x, y } = this.gamePoint(this.input.activePointer);
+      return containsRect(image.getBounds(), Math.trunc(x), Math.trunc(y));
+    });
   }
 
   private showMenu(): void {

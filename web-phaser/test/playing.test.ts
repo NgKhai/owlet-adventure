@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import { deepStrictEqual, strictEqual } from 'node:assert';
-import { MouseClicks, canHandleClick, canHandleKey, centerOffset, containsRect, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, updatePlaying, type PlayingSteps } from '../src/playing.ts';
+
+test('mouse coordinates subtract the letterbox offset before scaling as Java does', () => {
+  strictEqual(Math.trunc(gameCoordinate(852, 93, 736 / 896)), 924);
+  strictEqual(Math.trunc(gameCoordinate(550, 0, 736 / 896)), 669);
+});
 
 test('centering truncates small negative floating-point errors like Java', () => {
   strictEqual(Math.abs(centerOffset(864, 1664, 864 / 1664)), 0);
