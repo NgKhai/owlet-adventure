@@ -21,7 +21,7 @@ test('object manager interactions, cannon shots and resets match Java', () => {
     const objects = new ObjectManager([{ type: 0, x: 128, y: 64 }, { type: 3, x: 220, y: 64 }, { type: 5, x: 320, y: 64 }, { type: 6, x: 64, y: 64 }]);
     const bits = new DataView(new ArrayBuffer(4));
     const floatBits = (value: number) => { bits.setFloat32(0, value); return bits.getInt32(0); };
-    let health = 50, state = 0, leftShot = false, rightShot = false;
+    let health = 50, state = 0, leftShot = false, rightShot = false, playerHit = false;
     for (let tick = 0; tick < 600; tick++) {
       if (tick === 0 || tick === 280) level[1][3] = 0;
       if (tick === 100 || tick === 330) level[1][3] = 11;
@@ -31,7 +31,7 @@ test('object manager interactions, cannon shots and resets match Java', () => {
       if (tick === 5 || tick === 305) objects.checkHit({ x: 220, y: 64, width: 80, height: 80 });
       if (tick === 45 || tick === 310) objects.checkPotions(player, type => { if (type === 0) health = Math.min(100, health + 15); });
       if (tick === 300) objects.reset();
-      objects.update(level, player, 1, damage => { if (state !== 5) { state = 5; health = Math.max(0, health - damage); } });
+      objects.update(level, player, 1, damage => { if (state !== 5) { state = 5; health = Math.max(0, health - damage); playerHit = true; } });
       if (tick < 40) strictEqual(objects.cannons.every(cannon => !cannon.animate), true, 'out-of-range player does not trigger cannons');
       if (tick >= 40 && tick < 100) strictEqual(objects.cannons[0].animate, false, 'wall blocks the left-facing cannon');
       leftShot ||= objects.projectiles.some(shot => shot.dir === -1);
@@ -42,5 +42,6 @@ test('object manager interactions, cannon shots and resets match Java', () => {
         box.active, cannon.index, cannon.tick, rightCannon.index, rightCannon.tick, objects.projectiles.length, projectileState].join(','), java[tick]);
     }
     ok(leftShot && rightShot, 'both cannon directions fired');
+    ok(playerHit, 'a cannon projectile damaged the player');
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
