@@ -6,7 +6,7 @@ import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
-import { MouseClicks, canHandleClick, canHandleKey, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { MouseClicks, canHandleClick, canHandleKey, javaFillRect, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -85,6 +85,19 @@ class GameScene extends Phaser.Scene {
   private get player() { return this.character.movement; }
   private get animation() { return this.character.animation; }
 
+  private updateBars(): void {
+    const camera = this.cameras.main;
+    const zoom = camera.zoom;
+    const offsetX = Math.round(-camera.scrollX * zoom);
+    const offsetY = Math.round(-camera.scrollY * zoom);
+    const update = (bar: Phaser.GameObjects.Rectangle, x: number, y: number, width: number, height: number) => {
+      const bounds = javaFillRect(x, y, width, height, zoom, offsetX, offsetY);
+      bar.setPosition(bounds.x, bounds.y).setSize(bounds.width, bounds.height);
+    };
+    update(this.healthBar, 88, 48, this.character.healthWidth, 8);
+    update(this.powerBar, 108, 88, this.character.powerWidth, 4);
+  }
+
   private gamePoint(pointer: Phaser.Input.Pointer) {
     const camera = this.cameras.main;
     return { x: pointer.x / camera.zoom + camera.scrollX, y: pointer.y / camera.zoom + camera.scrollY };
@@ -128,6 +141,7 @@ class GameScene extends Phaser.Scene {
       this.cameras.main.roundPixels = false;
       this.cameras.main.setViewport(0, 0, size.width, size.height).setOrigin(0, 0).setZoom(zoom)
         .setScroll(-Math.floor((size.width - width) / 2) / zoom, -Math.floor((size.height - height) / 2) / zoom);
+      if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -448,8 +462,7 @@ class GameScene extends Phaser.Scene {
     this.playerImage.setPosition(Math.trunc(Math.fround(this.player.box.x - 42)) - this.offset,
       Math.trunc(Math.fround(Math.fround(this.player.box.y - 8) + Math.trunc(this.player.pushDrawOffset))))
       .setFrame(this.animation.state * 8 + this.animation.index).setFlipX(this.player.flip === -1);
-    this.healthBar.width = this.character.healthWidth;
-    this.powerBar.width = this.character.powerWidth;
+    this.updateBars();
     this.renderObjects();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
     for (const effect of this.dialogue.items) {

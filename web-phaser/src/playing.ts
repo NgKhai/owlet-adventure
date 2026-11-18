@@ -11,6 +11,14 @@ export type PlayingSteps = {
 
 export type PlayingOverlay = 'none' | 'pause' | 'gameOver' | 'levelCompleted' | 'gameCompleted';
 
+export function javaFillRect(x: number, y: number, width: number, height: number, zoom: number, offsetX: number, offsetY: number) {
+  const left = Math.floor(x * zoom + offsetX + 0.25);
+  const top = Math.floor(y * zoom + offsetY + 0.25);
+  const right = Math.floor((x + width) * zoom + offsetX + 0.25);
+  const bottom = Math.floor((y + height) * zoom + offsetY + 0.25);
+  return { x: (left - offsetX) / zoom, y: (top - offsetY) / zoom, width: (right - left) / zoom, height: (bottom - top) / zoom };
+}
+
 export class MouseClicks {
   private buttons = 0;
   private x = 0;
