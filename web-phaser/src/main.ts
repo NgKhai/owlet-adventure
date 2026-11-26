@@ -7,7 +7,7 @@ import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
 import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, spriteTopEdge, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
-import { shouldBiasTileAxis } from './tileSampling.ts';
+import { shouldBiasImageAxis } from './imageSampling.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -44,6 +44,7 @@ class GameScene extends Phaser.Scene {
   private treeLevels = new Map<number, Tree[]>();
   private healthBar!: Phaser.GameObjects.Rectangle;
   private powerBar!: Phaser.GameObjects.Rectangle;
+  private statusBar!: Phaser.GameObjects.Image;
   private objects!: ObjectManager;
   private objectImages = new Map<GameObject | Projectile, Phaser.GameObjects.Image>();
   private trees: Tree[] = [];
@@ -446,7 +447,8 @@ class GameScene extends Phaser.Scene {
       tree.image.setDepth(50 + i * 0.001);
       tree.edge = this.image(0, 0, tree.type === 7 ? 'tree1' : 'tree2', 0).setDepth(50 + i * 0.001 + 0.0005).setVisible(false);
     });
-    this.worldItems.push(this.image(20, 20, 'health_power_bar').setDisplaySize(384, 116).setDepth(41));
+    this.statusBar = this.image(20, 20, 'health_power_bar').setDisplaySize(384, 116).setDepth(41);
+    this.worldItems.push(this.statusBar);
     this.healthBar = this.add.rectangle(88, 48, 300, 8, 0xff0000).setOrigin(0).setDepth(41);
     this.powerBar = this.add.rectangle(108, 88, 208, 4, 0xffff00).setOrigin(0).setDepth(41);
     if (playMusic) this.playSong(this.levelIndex % 2 === 0 ? 'levelMusic' : 'levelMusic2');
@@ -668,7 +670,7 @@ class GameScene extends Phaser.Scene {
     this.tileSamplingKey = key;
     const columns = new Map<number, boolean>(), rows = new Map<number, boolean>();
     const biased = (position: number, offset: number, screenSize: number, cache: Map<number, boolean>) => {
-      if (!cache.has(position)) cache.set(position, shouldBiasTileAxis(position, offset, screenSize, zoom));
+      if (!cache.has(position)) cache.set(position, shouldBiasImageAxis(position, offset, screenSize, zoom));
       return cache.get(position)!;
     };
     const texture = this.textures.get('tiles');
@@ -691,6 +693,18 @@ class GameScene extends Phaser.Scene {
       }
       item.setFrame(frameKey);
     }
+    if (!this.statusBar?.scene) return;
+    const bx = shouldBiasImageAxis(20, offsetX, size.width, zoom, 192, 58);
+    const by = shouldBiasImageAxis(20, offsetY, size.height, zoom, 58, 192);
+    if (!bx && !by) { this.statusBar.setFrame('__BASE'); return; }
+    const hud = this.textures.get('health_power_bar'), hudKey = `java-bias-${Number(bx)}-${Number(by)}`;
+    if (!hud.has(hudKey)) {
+      const copy = hud.add(hudKey, 0, 0, 0, 192, 58);
+      if (!copy) return;
+      if (bx) { copy.u0 -= 0.00384 / 192; copy.u1 -= 0.00384 / 192; }
+      if (by) { copy.v0 -= 0.00384 / 58; copy.v1 -= 0.00384 / 58; }
+    }
+    this.statusBar.setFrame(hudKey);
   }
 }
 
