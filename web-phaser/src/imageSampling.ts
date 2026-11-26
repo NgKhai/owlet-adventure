@@ -34,7 +34,7 @@ export function shouldBiasImageAxis(logical: number, offset: number, screenSize:
 }
 
 
-export function shouldRaiseImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize: number, otherSize: number): boolean {
+export function shouldRaiseImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize: number, otherSize: number, includeStart = false): boolean {
   if (Math.abs(sourceSize * 2 * zoom - sourceSize) < 0.0001 && Math.abs(otherSize * 2 * zoom - otherSize) < 0.0001) return false;
   const start = offset + logical * zoom;
   const first = Math.max(0, Math.floor(start));
@@ -43,7 +43,12 @@ export function shouldRaiseImageAxis(logical: number, offset: number, screenSize
   let needed = false;
   for (let pixel = first; pixel < last; pixel++) {
     const exact = (pixel + 0.5 - start) * inverse;
-    if (Math.abs(exact) < 0.005 || Math.abs(exact - sourceSize) < 0.005) return false;
+    if (Math.abs(exact) < 0.005) {
+      if (!includeStart || Math.abs(exact) >= 1e-7) return false;
+      needed = true;
+      continue;
+    }
+    if (Math.abs(exact - sourceSize) < 0.005) return false;
     const nearest = Math.round(exact);
     if (nearest <= 0 || nearest >= sourceSize) continue;
     const delta = exact - nearest;

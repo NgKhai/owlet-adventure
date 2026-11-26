@@ -289,3 +289,22 @@ test('menu button sampling matches Java across scales', () => {
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+
+test('tree left-edge correction only selects Java source pixels', () => {
+  strictEqual(shouldRaiseImageAxis(520, 0, 600, 600 / 1664, 39, 92), false);
+  strictEqual(shouldRaiseImageAxis(520, 0, 600, 600 / 1664, 39, 92, true), true);
+  let checked = 0;
+  for (const [size, other] of [[39, 92], [62, 54]]) for (let width = 350; width < 1500; width++)
+    for (const position of [0, 200, 520, 574, 900]) {
+      const zoom = width / 1664, start = position * zoom;
+      if (!shouldRaiseImageAxis(position, 0, width, zoom, size, other, true)) continue;
+      checked++;
+      for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(width, Math.ceil(start + size * 2 * zoom)); pixel++) {
+        const source = (pixel + 0.5 - start) / (2 * zoom);
+        if (source >= 0 && source < size)
+          strictEqual(Math.floor(source + 0.00384), javaImageSample(pixel, position, 0, zoom, size, other), `${width},${position},${pixel}`);
+      }
+    }
+  ok(checked > 0);
+});
