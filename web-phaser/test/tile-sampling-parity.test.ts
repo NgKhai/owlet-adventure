@@ -173,3 +173,21 @@ test('positive tile bias preserves Java sampling across positions and scales', (
   }
   ok(checked > 0);
 });
+
+
+test('positive enemy bias preserves Java sprite samples across positions and scales', () => {
+  let checked = 0;
+  for (const [size, other] of [[72, 32], [34, 30]])
+    for (let width = 350; width < 1500; width++) for (const position of [-64, 0, 558, 1292]) {
+      const zoom = width / 1664, offset = 340;
+      if (!shouldRaiseImageAxis(position, offset, 900, zoom, size, other)) continue;
+      checked++;
+      const start = offset + position * zoom;
+      for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(900, Math.ceil(start + size * 2 * zoom)); pixel++) {
+        const source = (pixel + 0.5 - start) / (2 * zoom);
+        if (source >= 0 && source < size)
+          strictEqual(Math.floor(source + 0.00384), javaImageSample(pixel, position, offset, zoom, size, other), `${width},${position},${pixel}`);
+      }
+    }
+  ok(checked > 0);
+});

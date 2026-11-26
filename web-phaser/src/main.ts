@@ -692,15 +692,15 @@ class GameScene extends Phaser.Scene {
       if (!image.visible) continue;
       const number = enemy.state * (enemy.type === 0 ? 9 : 8) + enemy.index;
       const texture = image.texture, frame = texture.get(number), source = texture.source[0];
-      const bx = !image.flipX && shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height);
-      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width);
+      const bx = image.flipX ? 0 : shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? -1 : shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? 1 : 0;
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? -1 : shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? 1 : 0;
       if (!bx && !by) { image.setFrame(number); continue; }
       const key = `java-enemy-${number}-${Number(bx)}-${Number(by)}`;
       if (!texture.has(key)) {
         const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
         if (!copy) continue;
-        if (bx) { copy.u0 -= 0.00384 / source.width; copy.u1 -= 0.00384 / source.width; }
-        if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
+        if (bx) { copy.u0 += bx * 0.00384 / source.width; copy.u1 += bx * 0.00384 / source.width; }
+        if (by) { copy.v0 += by * 0.00384 / source.height; copy.v1 += by * 0.00384 / source.height; }
       }
       image.setFrame(key);
     }
