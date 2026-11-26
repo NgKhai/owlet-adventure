@@ -241,3 +241,19 @@ test('pause panel sampling matches Java at different scales', () => {
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+
+test('completion and game-over panels sample like Java', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-overlay-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'OverlaySamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'OverlaySamplingOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, oy, sw, sh, x, y, px, py, sx, sy] = line.split(',').map(Number), zoom = width / 1664;
+      strictEqual(javaImageSample(px, x, 0, zoom, sw, sh), sx, line);
+      strictEqual(javaImageSample(py, y, oy, zoom, sh, sw), sy, line);
+    }
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});

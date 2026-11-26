@@ -558,6 +558,8 @@ class GameScene extends Phaser.Scene {
     const background = this.image(0, kind === 'levelCompleted' ? 150 : 200, key).setScale(2).setDepth(81);
     background.x = WIDTH / 2 - background.displayWidth / 2;
     this.overlayItems.push(shade, background);
+    this.tileSamplingKey = '';
+    this.updateTileSampling();
     if (kind === 'gameCompleted') {
       this.overlayButton('buttons', 2, WIDTH / 2 - 140, 540, () => this.returnMenu());
       this.overlayButton('buttons', 3, WIDTH / 2 - 140, 400, () => { this.clearPlaying(); this.levelIndex = 0; this.showCredits(); });
@@ -820,11 +822,11 @@ class GameScene extends Phaser.Scene {
     }
     const images = [...this.bigClouds, ...this.smallClouds];
     if (this.statusBar?.scene) images.push(this.statusBar);
-    for (const item of this.overlayItems) if (item instanceof Phaser.GameObjects.Image && item.texture.key === 'pause_menu') images.push(item);
+    for (const item of this.overlayItems) if (item instanceof Phaser.GameObjects.Image && ['pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(item.texture.key)) images.push(item);
     for (const image of images) {
       const texture = image.texture, source = texture.source[0], width = source.width, height = source.height;
-      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : (image === this.statusBar || image.texture.key === 'pause_menu') && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
-      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : (image === this.statusBar || image.texture.key === 'pause_menu') && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
+      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : (image === this.statusBar || ['pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : (image === this.statusBar || ['pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
       if (!bx && !by) { image.setFrame('__BASE'); continue; }
       const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
       if (!texture.has(frameKey)) {
