@@ -208,6 +208,8 @@ class GameScene extends Phaser.Scene {
     const panel = this.image(0, 50, 'menu_background').setScale(2);
     panel.x = WIDTH / 2 - panel.displayWidth / 2;
     this.menuItems.push(panel);
+    this.tileSamplingKey = '';
+    this.updateTileSampling();
     const buttons = [0, 1, 3, 2];
     buttons.forEach((row, i) => {
       const button = this.interactive(this.image(WIDTH / 2 - 140, (130 + i * 70) * 2, 'buttons', row * 3).setScale(2));
@@ -277,6 +279,8 @@ class GameScene extends Phaser.Scene {
     const panel = this.image(0, 66, 'options_background').setScale(2);
     panel.x = WIDTH / 2 - panel.displayWidth / 2;
     this.menuItems.push(panel);
+    this.tileSamplingKey = '';
+    this.updateTileSampling();
     this.uiButton(this.menuItems, 'urm', 2, 774, 650, () => this.showMenuFromScreen());
     this.addAudioControls(this.menuItems);
   }
@@ -822,11 +826,12 @@ class GameScene extends Phaser.Scene {
     }
     const images = [...this.bigClouds, ...this.smallClouds];
     if (this.statusBar?.scene) images.push(this.statusBar);
+    for (const item of this.menuItems) if (item instanceof Phaser.GameObjects.Image && ['background_menu', 'options_background', 'menu_background'].includes(item.texture.key)) images.push(item);
     for (const item of this.overlayItems) if (item instanceof Phaser.GameObjects.Image && ['pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(item.texture.key)) images.push(item);
     for (const image of images) {
       const texture = image.texture, source = texture.source[0], width = source.width, height = source.height;
-      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : (image === this.statusBar || ['pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
-      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : (image === this.statusBar || ['pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
+      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : (image === this.statusBar || ['background_menu', 'options_background', 'menu_background', 'pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : (image === this.statusBar || ['background_menu', 'options_background', 'menu_background', 'pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
       if (!bx && !by) { image.setFrame('__BASE'); continue; }
       const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
       if (!texture.has(frameKey)) {
