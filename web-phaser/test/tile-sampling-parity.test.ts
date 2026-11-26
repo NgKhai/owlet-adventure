@@ -156,3 +156,20 @@ test('positive status bar bias is applied only when Java samples the higher pixe
   }
   ok(checked > 20);
 });
+
+
+test('positive tile bias preserves Java sampling across positions and scales', () => {
+  let checked = 0;
+  for (let width = 350; width < 1500; width++) for (const position of [-64, 0, 64, 320, 512, 704]) {
+    const zoom = width / 1664, offset = 340;
+    if (!shouldRaiseImageAxis(position, offset, 900, zoom, 32, 32)) continue;
+    checked++;
+    const start = offset + position * zoom;
+    for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(900, Math.ceil(start + 64 * zoom)); pixel++) {
+      const source = (pixel + 0.5 - start) / (2 * zoom);
+      if (source >= 0 && source < 32)
+        strictEqual(Math.floor(source + 0.00384), javaImageSample(pixel, position, offset, zoom), `${width},${position},${pixel}`);
+    }
+  }
+  ok(checked > 0);
+});

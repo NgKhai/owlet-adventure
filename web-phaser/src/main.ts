@@ -738,12 +738,17 @@ class GameScene extends Phaser.Scene {
       if (!cache.has(position)) cache.set(position, shouldBiasImageAxis(position, offset, screenSize, zoom));
       return cache.get(position)!;
     };
+    const raisedColumns = new Map<number, boolean>(), raisedRows = new Map<number, boolean>();
+    const raised = (position: number, offset: number, screenSize: number, cache: Map<number, boolean>) => {
+      if (!cache.has(position)) cache.set(position, shouldRaiseImageAxis(position, offset, screenSize, zoom, 32, 32));
+      return cache.get(position)!;
+    };
     for (const item of this.worldItems) {
       if (!(item instanceof Phaser.GameObjects.Image)) continue;
       const frameNumber = item.getData('samplingFrame') as number | undefined;
       if (frameNumber === undefined) continue;
-      const bx = biased(item.getData('worldX') - this.offset, offsetX, size.width, columns);
-      const by = biased(item.y, offsetY, size.height, rows);
+      const bx = biased(item.getData('worldX') - this.offset, offsetX, size.width, columns) ? -1 : raised(item.getData('worldX') - this.offset, offsetX, size.width, raisedColumns) ? 1 : 0;
+      const by = biased(item.y, offsetY, size.height, rows) ? -1 : raised(item.y, offsetY, size.height, raisedRows) ? 1 : 0;
       if (!bx && !by) { item.setFrame(frameNumber); continue; }
       // shortcut: adjusts only safe boundaries; other sprite sampling still differs from Java.
       const texture = item.texture;
@@ -753,8 +758,8 @@ class GameScene extends Phaser.Scene {
         const copy = texture.add(frameKey, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
         if (!copy) continue;
         const source = texture.source[0];
-        if (bx) { copy.u0 -= 0.00384 / source.width; copy.u1 -= 0.00384 / source.width; }
-        if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
+        if (bx) { copy.u0 += bx * 0.00384 / source.width; copy.u1 += bx * 0.00384 / source.width; }
+        if (by) { copy.v0 += by * 0.00384 / source.height; copy.v1 += by * 0.00384 / source.height; }
       }
       item.setFrame(frameKey);
     }
