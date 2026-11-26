@@ -151,6 +151,7 @@ class GameScene extends Phaser.Scene {
       this.updateTreeEdges();
       this.updateTileSampling();
       this.updatePlayerSampling();
+      this.updateEnemySampling();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -508,6 +509,7 @@ class GameScene extends Phaser.Scene {
         Math.trunc(enemy.box.y) - yOffset + Math.trunc(enemy.pushDrawOffset))
         .setFrame(enemy.state * columns + enemy.index).setFlipX(enemy.walkDir === 2);
     }
+    this.updateEnemySampling();
   }
 
   private updateEnemies(): void {
@@ -682,6 +684,28 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+
+
+  private updateEnemySampling(): void {
+    const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
+    const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
+    for (const {enemy, image} of this.enemies) {
+      if (!image.visible) continue;
+      const number = enemy.state * (enemy.type === 0 ? 9 : 8) + enemy.index;
+      const texture = image.texture, frame = texture.get(number), source = texture.source[0];
+      const bx = !image.flipX && shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height);
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width);
+      if (!bx && !by) { image.setFrame(number); continue; }
+      const key = `java-enemy-${number}-${Number(bx)}-${Number(by)}`;
+      if (!texture.has(key)) {
+        const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+        if (!copy) continue;
+        if (bx) { copy.u0 -= 0.00384 / source.width; copy.u1 -= 0.00384 / source.width; }
+        if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
+      }
+      image.setFrame(key);
+    }
+  }
 
   private updatePlayerSampling(): void {
     const image = this.playerImage;

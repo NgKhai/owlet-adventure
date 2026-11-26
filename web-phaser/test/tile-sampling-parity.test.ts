@@ -100,3 +100,21 @@ test('tree sprite sampling matches Java across scales and clipped edges', () => 
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+
+test('enemy sprite sampling matches Java across scales and clipped edges', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-enemy-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'EnemySamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'EnemySamplingOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, ox, oy, sw, sh, x, y, px, py, sample] = line.split(',').map(Number);
+      const zoom = width / 1664;
+      strictEqual(javaImageSample(px, x, ox, zoom, sw, sh), sample >> 8, line);
+      strictEqual(javaImageSample(py, y, oy, zoom, sh, sw), sample & 255, line);
+    }
+    strictEqual(shouldBiasImageAxis(558, 217, 900, 864 / 1664, 32, 72), true);
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});
