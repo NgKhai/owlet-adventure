@@ -151,6 +151,7 @@ class GameScene extends Phaser.Scene {
       this.updateShipSampling();
       this.updateEnemySampling();
       this.updateObjectSampling();
+      for (const item of this.menuItems) if (item instanceof Phaser.GameObjects.Image && item.getData('menuFrame') !== undefined) this.setMenuButtonFrame(item, item.getData('menuFrame'));
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -202,6 +203,24 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  private setMenuButtonFrame(image: Phaser.GameObjects.Image, number: number): void {
+    image.setData('menuFrame', number);
+    const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
+    const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
+    const texture = image.texture, frame = texture.get(number), source = texture.source[0];
+    const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? -1 : shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? 1 : 0;
+    const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? -1 : shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? 1 : 0;
+    if (!bx && !by) { image.setFrame(number); return; }
+    const key = `java-menu-button-${number}-${bx}-${by}`;
+    if (!texture.has(key)) {
+      const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+      if (!copy) return;
+      if (bx) { copy.u0 += bx * 0.00384 / source.width; copy.u1 += bx * 0.00384 / source.width; }
+      if (by) { copy.v0 += by * 0.00384 / source.height; copy.v1 += by * 0.00384 / source.height; }
+    }
+    image.setFrame(key);
+  }
+
   private showMenu(): void {
     this.mode = 'menu';
     this.menuItems.push(this.image(0, 0, 'background_menu').setDisplaySize(WIDTH, HEIGHT));
@@ -213,12 +232,13 @@ class GameScene extends Phaser.Scene {
     const buttons = [0, 1, 3, 2];
     buttons.forEach((row, i) => {
       const button = this.interactive(this.image(WIDTH / 2 - 140, (130 + i * 70) * 2, 'buttons', row * 3).setScale(2));
+      this.setMenuButtonFrame(button, row * 3);
       let pressed = false;
-      button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 1)); });
-      button.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 1)); });
-      button.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) button.setFrame(row * 3 + (pressed ? 2 : 0)); });
-      this.resetOnPointerUp(button, () => { pressed = false; button.setFrame(row * 3); });
-      button.on('pointerdown', () => { pressed = true; button.setFrame(row * 3 + 2); });
+      button.on('pointerover', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) this.setMenuButtonFrame(button, row * 3 + (pressed ? 2 : 1)); });
+      button.on('pointermove', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) this.setMenuButtonFrame(button, row * 3 + (pressed ? 2 : 1)); });
+      button.on('pointerout', (pointer: Phaser.Input.Pointer) => { if (!pointer.isDown) this.setMenuButtonFrame(button, row * 3 + (pressed ? 2 : 0)); });
+      this.resetOnPointerUp(button, () => { pressed = false; this.setMenuButtonFrame(button, row * 3); });
+      button.on('pointerdown', () => { pressed = true; this.setMenuButtonFrame(button, row * 3 + 2); });
       button.on('pointerup', () => {
         if (pressed) {
           if (i === 0) this.startPlaying();
@@ -229,7 +249,7 @@ class GameScene extends Phaser.Scene {
         }
         if (i === 0) this.playSong(this.levelIndex % 2 === 0 ? 'levelMusic' : 'levelMusic2');
         pressed = false;
-        button.setFrame(row * 3);
+        this.setMenuButtonFrame(button, row * 3);
       });
       this.menuItems.push(button);
     });
