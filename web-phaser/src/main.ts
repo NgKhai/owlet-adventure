@@ -412,7 +412,7 @@ class GameScene extends Phaser.Scene {
         : tile === 49 ? this.image(x * 64, y * 64, 'water') : this.image(x * 64, y * 64, 'tiles', tile);
       image.setDisplaySize(64, 64).setDepth(10);
       image.setData('worldX', x * 64);
-      if (tile !== 48 && tile !== 49) image.setData('samplingFrame', tile);
+      image.setData('samplingFrame', tile === 49 ? '__BASE' : tile === 48 ? 0 : tile);
       this.worldItems.push(image);
       if (tile === 48) this.water.push(image);
     }));
@@ -480,7 +480,6 @@ class GameScene extends Phaser.Scene {
     }
     for (const item of this.worldItems) if (item instanceof Phaser.GameObjects.Image && item.getData('worldX') !== undefined)
       item.x = item.getData('worldX') - this.offset;
-    this.water.forEach(image => image.setFrame(this.waterFrame));
     this.bigClouds.forEach((image, i) => image.x = i * 896 - Math.trunc(this.offset * 0.3));
     this.smallClouds.forEach((image, i) => image.x = i * 592 - Math.trunc(this.offset * 0.7));
     this.ship.setPosition(200 - this.offset, Math.trunc(Math.fround(576 + this.shipY))).setFrame(this.shipFrame);
@@ -730,7 +729,7 @@ class GameScene extends Phaser.Scene {
   private updateTileSampling(): void {
     const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
     const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
-    const key = `${this.offset}:${zoom}:${size.width}:${size.height}:${offsetX}:${offsetY}`;
+    const key = `${this.offset}:${zoom}:${size.width}:${size.height}:${offsetX}:${offsetY}:${this.waterFrame}`;
     if (key === this.tileSamplingKey) return;
     this.tileSamplingKey = key;
     const columns = new Map<number, boolean>(), rows = new Map<number, boolean>();
@@ -745,7 +744,7 @@ class GameScene extends Phaser.Scene {
     };
     for (const item of this.worldItems) {
       if (!(item instanceof Phaser.GameObjects.Image)) continue;
-      const frameNumber = item.getData('samplingFrame') as number | undefined;
+      const frameNumber = item.texture.key === 'waterTop' ? this.waterFrame : item.getData('samplingFrame') as number | string | undefined;
       if (frameNumber === undefined) continue;
       const bx = biased(item.getData('worldX') - this.offset, offsetX, size.width, columns) ? -1 : raised(item.getData('worldX') - this.offset, offsetX, size.width, raisedColumns) ? 1 : 0;
       const by = biased(item.y, offsetY, size.height, rows) ? -1 : raised(item.y, offsetY, size.height, raisedRows) ? 1 : 0;
