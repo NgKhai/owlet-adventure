@@ -225,3 +225,19 @@ test('cannon and container sprite sampling matches Java', () => {
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+
+test('pause panel sampling matches Java at different scales', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-pause-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'PauseSamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'PauseSamplingOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, oy, px, py, sx, sy] = line.split(',').map(Number), zoom = width / 1664;
+      strictEqual(javaImageSample(px, 574, 0, zoom, 258, 389), sx, line);
+      strictEqual(javaImageSample(py, 50, oy, zoom, 389, 258), sy, line);
+    }
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});

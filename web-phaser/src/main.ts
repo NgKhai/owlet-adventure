@@ -578,6 +578,8 @@ class GameScene extends Phaser.Scene {
     const panel = this.image(0, 50, 'pause_menu').setScale(2).setDepth(81);
     panel.x = WIDTH / 2 - panel.displayWidth / 2;
     this.overlayItems.push(panel);
+    this.tileSamplingKey = '';
+    this.updateTileSampling();
     this.overlayButton('urm', 2, 626, 650, () => this.returnMenu());
     this.overlayButton('urm', 1, 774, 650, () => this.restartLevel(false));
     this.overlayButton('urm', 0, 924, 650, () => this.closeOverlay());
@@ -818,10 +820,11 @@ class GameScene extends Phaser.Scene {
     }
     const images = [...this.bigClouds, ...this.smallClouds];
     if (this.statusBar?.scene) images.push(this.statusBar);
+    for (const item of this.overlayItems) if (item instanceof Phaser.GameObjects.Image && item.texture.key === 'pause_menu') images.push(item);
     for (const image of images) {
       const texture = image.texture, source = texture.source[0], width = source.width, height = source.height;
-      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : image === this.statusBar && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
-      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : image === this.statusBar && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
+      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : (image === this.statusBar || image.texture.key === 'pause_menu') && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : (image === this.statusBar || image.texture.key === 'pause_menu') && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
       if (!bx && !by) { image.setFrame('__BASE'); continue; }
       const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
       if (!texture.has(frameKey)) {
