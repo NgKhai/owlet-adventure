@@ -49,3 +49,19 @@ test('status bar image sampling matches Java across scales and offsets', () => {
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+test('cloud image sampling matches Java across scales and clipped edges', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-cloud-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'CloudSamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'CloudSamplingOracle'], { encoding: 'utf8', maxBuffer: 4 * 1024 * 1024 }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, ox, oy, sw, sh, x, y, px, py, sample] = line.split(',').map(Number);
+      const zoom = width / 1664;
+      strictEqual(javaImageSample(px, x, ox, zoom, sw, sh), sample >> 8, line);
+      strictEqual(javaImageSample(py, y, oy, zoom, sh, sw), sample & 255, line);
+    }
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});

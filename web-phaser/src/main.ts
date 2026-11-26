@@ -710,18 +710,22 @@ class GameScene extends Phaser.Scene {
       }
       image.setFrame(frameKey);
     }
-    if (!this.statusBar?.scene) return;
-    const bx = shouldBiasImageAxis(20, offsetX, size.width, zoom, 192, 58);
-    const by = shouldBiasImageAxis(20, offsetY, size.height, zoom, 58, 192);
-    if (!bx && !by) { this.statusBar.setFrame('__BASE'); return; }
-    const hud = this.textures.get('health_power_bar'), hudKey = `java-bias-${Number(bx)}-${Number(by)}`;
-    if (!hud.has(hudKey)) {
-      const copy = hud.add(hudKey, 0, 0, 0, 192, 58);
-      if (!copy) return;
-      if (bx) { copy.u0 -= 0.00384 / 192; copy.u1 -= 0.00384 / 192; }
-      if (by) { copy.v0 -= 0.00384 / 58; copy.v1 -= 0.00384 / 58; }
+    const images = [...this.bigClouds, ...this.smallClouds];
+    if (this.statusBar?.scene) images.push(this.statusBar);
+    for (const image of images) {
+      const texture = image.texture, source = texture.source[0], width = source.width, height = source.height;
+      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height);
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width);
+      if (!bx && !by) { image.setFrame('__BASE'); continue; }
+      const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
+      if (!texture.has(frameKey)) {
+        const copy = texture.add(frameKey, 0, 0, 0, width, height);
+        if (!copy) continue;
+        if (bx) { copy.u0 -= 0.00384 / width; copy.u1 -= 0.00384 / width; }
+        if (by) { copy.v0 -= 0.00384 / height; copy.v1 -= 0.00384 / height; }
+      }
+      image.setFrame(frameKey);
     }
-    this.statusBar.setFrame(hudKey);
   }
 }
 
