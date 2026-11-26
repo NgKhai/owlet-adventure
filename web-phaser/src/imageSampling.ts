@@ -12,7 +12,7 @@ export function javaImageSample(pixel: number, logical: number, offset: number, 
   return Math.floor((base + (pixel - first) * step) / FIXED_ONE);
 }
 
-export function shouldBiasImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize = 32, otherSize = 32): boolean {
+export function shouldBiasImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize = 32, otherSize = 32, includeEnd = false): boolean {
   if (Math.abs(sourceSize * 2 * zoom - sourceSize) < 0.0001 && Math.abs(otherSize * 2 * zoom - otherSize) < 0.0001) return false;
   const start = offset + logical * zoom;
   const first = Math.max(0, Math.floor(start));
@@ -21,7 +21,12 @@ export function shouldBiasImageAxis(logical: number, offset: number, screenSize:
   let needsBias = false;
   for (let pixel = first; pixel < last; pixel++) {
     const exact = (pixel + 0.5 - start) * inverse;
-    if (Math.abs(exact) < 0.005 || Math.abs(exact - sourceSize) < 0.005) return false;
+    if (Math.abs(exact) < 0.005) return false;
+    if (Math.abs(exact - sourceSize) < 0.005) {
+      if (!includeEnd || Math.abs(exact - sourceSize) >= 1e-7 || javaImageSample(pixel, logical, offset, zoom, sourceSize, otherSize) !== sourceSize - 1) return false;
+      needsBias = true;
+      continue;
+    }
     const nearest = Math.round(exact);
     if (nearest <= 0 || nearest >= sourceSize) continue;
     const delta = exact - nearest;

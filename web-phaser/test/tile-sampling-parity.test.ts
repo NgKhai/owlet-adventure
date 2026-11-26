@@ -308,3 +308,21 @@ test('tree left-edge correction only selects Java source pixels', () => {
     }
   ok(checked > 0);
 });
+
+
+test('player right-edge correction keeps Java sampling positions', () => {
+  strictEqual(shouldBiasImageAxis(470, 0, 800, 800 / 1664, 64, 40), false);
+  strictEqual(shouldBiasImageAxis(470, 0, 800, 800 / 1664, 64, 40, true), true);
+  let checked = 0;
+  for (let width = 350; width < 1500; width++) for (const position of [0, 200, 470, 520, 692]) {
+    const zoom = width / 1664, start = position * zoom;
+    if (!shouldBiasImageAxis(position, 0, width, zoom, 64, 40, true)) continue;
+    checked++;
+    for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(width, Math.ceil(start + 128 * zoom)); pixel++) {
+      const source = (pixel + 0.5 - start) / (2 * zoom);
+      if (source > 0 && source <= 64)
+        strictEqual(Math.floor(source - 0.00384), javaImageSample(pixel, position, 0, zoom, 64, 40), `${width},${position},${pixel}`);
+    }
+  }
+  ok(checked > 0);
+});

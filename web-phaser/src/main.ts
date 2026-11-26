@@ -780,7 +780,7 @@ class GameScene extends Phaser.Scene {
     const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
     const number = this.animation.state * 8 + this.animation.index;
     const texture = image.texture, frame = texture.get(number), source = texture.source[0];
-    const bx = !image.flipX && shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height);
+    const bx = !image.flipX && shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height, true);
     const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width);
     if (!bx && !by) { image.setFrame(number); return; }
     const key = `java-player-${number}-${Number(bx)}-${Number(by)}`;
