@@ -7,6 +7,7 @@ import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
 import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, spriteTopEdge, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
+import { shouldBiasTileAxis } from './tileSampling.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -34,6 +35,7 @@ class GameScene extends Phaser.Scene {
   private waterTick = 0;
   private waterFrame = 0;
   private offset = 0;
+  private tileSamplingKey = '';
   private accumulated = 0;
   private lastFrameTime?: number;
   private enemies: { enemy: Enemy; image: Phaser.GameObjects.Image }[] = [];
@@ -146,6 +148,7 @@ class GameScene extends Phaser.Scene {
         .setScroll(-centerOffset(size.width, WIDTH, zoom) / zoom, -centerOffset(size.height, HEIGHT, zoom) / zoom);
       if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
       this.updateTreeEdges();
+      this.updateTileSampling();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -377,6 +380,7 @@ class GameScene extends Phaser.Scene {
   private startPlaying(playMusic = true, changeSpawn = false): void {
     this.clearMenuItems();
     this.mode = 'playing';
+    this.tileSamplingKey = '';
     const source = this.textures.get(`level${this.levelIndex + 1}`).getSourceImage() as HTMLImageElement;
     const canvas = document.createElement('canvas');
     canvas.width = source.width; canvas.height = source.height;
@@ -405,6 +409,7 @@ class GameScene extends Phaser.Scene {
         : tile === 49 ? this.image(x * 64, y * 64, 'water') : this.image(x * 64, y * 64, 'tiles', tile);
       image.setDisplaySize(64, 64).setDepth(10);
       image.setData('worldX', x * 64);
+      if (tile !== 48 && tile !== 49) image.setData('tileFrame', tile);
       this.worldItems.push(image);
       if (tile === 48) this.water.push(image);
     }));
@@ -470,6 +475,7 @@ class GameScene extends Phaser.Scene {
     }
     for (const item of this.worldItems) if (item instanceof Phaser.GameObjects.Image && item.getData('worldX') !== undefined)
       item.x = item.getData('worldX') - this.offset;
+    this.updateTileSampling();
     this.water.forEach(image => image.setFrame(this.waterFrame));
     this.bigClouds.forEach((image, i) => image.x = i * 896 - Math.trunc(this.offset * 0.3));
     this.smallClouds.forEach((image, i) => image.x = i * 592 - Math.trunc(this.offset * 0.7));
@@ -651,6 +657,39 @@ class GameScene extends Phaser.Scene {
       tree.edge.setVisible(y !== undefined);
       if (y !== undefined) tree.edge.setPosition(tree.image.x, y).setScale(2, 1 / zoom)
         .setFrame(tree.frame).setFlipX(tree.type === 9).setCrop(0, 0, tree.image.width, 1);
+    }
+  }
+
+  private updateTileSampling(): void {
+    const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
+    const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
+    const key = `${this.offset}:${zoom}:${size.width}:${size.height}:${offsetX}:${offsetY}`;
+    if (key === this.tileSamplingKey) return;
+    this.tileSamplingKey = key;
+    const columns = new Map<number, boolean>(), rows = new Map<number, boolean>();
+    const biased = (position: number, offset: number, screenSize: number, cache: Map<number, boolean>) => {
+      if (!cache.has(position)) cache.set(position, shouldBiasTileAxis(position, offset, screenSize, zoom));
+      return cache.get(position)!;
+    };
+    const texture = this.textures.get('tiles');
+    for (const item of this.worldItems) {
+      if (!(item instanceof Phaser.GameObjects.Image)) continue;
+      const tile = item.getData('tileFrame') as number | undefined;
+      if (tile === undefined) continue;
+      const bx = biased(item.getData('worldX') - this.offset, offsetX, size.width, columns);
+      const by = biased(item.y, offsetY, size.height, rows);
+      if (!bx && !by) { item.setFrame(tile); continue; }
+      // shortcut: adjusts only safe tile boundaries; other sprite sampling still differs from Java.
+      const frameKey = `java-bias-${tile}-${Number(bx)}-${Number(by)}`;
+      if (!texture.has(frameKey)) {
+        const frame = texture.get(tile);
+        const copy = texture.add(frameKey, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+        if (!copy) continue;
+        const source = texture.source[0];
+        if (bx) { copy.u0 -= 0.00384 / source.width; copy.u1 -= 0.00384 / source.width; }
+        if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
+      }
+      item.setFrame(frameKey);
     }
   }
 }
