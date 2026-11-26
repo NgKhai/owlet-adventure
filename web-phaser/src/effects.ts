@@ -47,3 +47,18 @@ export class Rain {
     }
   }
 }
+
+
+export class ShipMotion {
+  tick = 0;
+  frame = 0;
+  y = 0;
+  direction = 1;
+
+  update(): void {
+    if (++this.tick >= 35) { this.tick = 0; this.frame = (this.frame + 1) % 4; }
+    this.y = Math.max(0, Math.min(20, Math.fround(this.y + Math.fround(0.1 * this.direction))));
+    if (this.y === 0) this.direction = 1;
+    else if (this.y === 20) this.direction = -1;
+  }
+}

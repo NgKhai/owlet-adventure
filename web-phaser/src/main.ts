@@ -4,7 +4,7 @@ import { isEntityInWater } from './collision.ts';
 import { readLevel, type LevelData } from './level.ts';
 import { Enemy, checkEnemyHit, type EnemyHooks } from './enemy.ts';
 import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from './objects.ts';
-import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
+import { DialogueEffects, type DialogueEffect, Rain, ShipMotion } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
 import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, spriteTopEdge, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
 import { shouldBiasImageAxis, shouldRaiseImageAxis } from './imageSampling.ts';
@@ -27,10 +27,7 @@ class GameScene extends Phaser.Scene {
   private smallClouds: Phaser.GameObjects.Image[] = [];
   private smallCloudPositions = Array.from({ length: 8 }, () => 180 + Math.floor(Math.random() * 200));
   private ship!: Phaser.GameObjects.Image;
-  private shipTick = 0;
-  private shipFrame = 0;
-  private shipY = 0;
-  private shipDir = 1;
+  private shipMotion = new ShipMotion();
   private drawShip = true;
   private waterTick = 0;
   private waterFrame = 0;
@@ -483,7 +480,7 @@ class GameScene extends Phaser.Scene {
       item.x = item.getData('worldX') - this.offset;
     this.bigClouds.forEach((image, i) => image.x = i * 896 - Math.trunc(this.offset * 0.3));
     this.smallClouds.forEach((image, i) => image.x = i * 592 - Math.trunc(this.offset * 0.7));
-    this.ship.setPosition(200 - this.offset, Math.trunc(Math.fround(576 + this.shipY))).setFrame(this.shipFrame);
+    this.ship.setPosition(200 - this.offset, Math.trunc(Math.fround(576 + this.shipMotion.y))).setFrame(this.shipMotion.frame);
     this.playerImage.setPosition(Math.trunc(Math.fround(this.player.box.x - 42)) - this.offset,
       Math.trunc(Math.fround(Math.fround(this.player.box.y - 8) + Math.trunc(this.player.pushDrawOffset))))
       .setFrame(this.animation.state * 8 + this.animation.index).setFlipX(this.player.flip === -1);
@@ -534,11 +531,7 @@ class GameScene extends Phaser.Scene {
   }
 
   private updateShip(): void {
-    if (!this.drawShip) return;
-    if (++this.shipTick >= 35) { this.shipTick = 0; this.shipFrame = (this.shipFrame + 1) % 4; }
-    this.shipY = Math.max(0, Math.min(20, Math.fround(this.shipY + Math.fround(0.1 * this.shipDir))));
-    if (this.shipY === 0) this.shipDir = 1;
-    else if (this.shipY === 20) this.shipDir = -1;
+    if (this.drawShip) this.shipMotion.update();
   }
 
   private playerHooks(): PlayerHooks {
@@ -714,11 +707,11 @@ class GameScene extends Phaser.Scene {
     if (!image?.scene || !image.visible) return;
     const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
     const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
-    const texture = image.texture, frame = texture.get(this.shipFrame), source = texture.source[0];
+    const texture = image.texture, frame = texture.get(this.shipMotion.frame), source = texture.source[0];
     const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? -1 : shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? 1 : 0;
     const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? -1 : shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? 1 : 0;
-    if (!bx && !by) { image.setFrame(this.shipFrame); return; }
-    const key = `java-ship-${this.shipFrame}-${bx}-${by}`;
+    if (!bx && !by) { image.setFrame(this.shipMotion.frame); return; }
+    const key = `java-ship-${this.shipMotion.frame}-${bx}-${by}`;
     if (!texture.has(key)) {
       const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
       if (!copy) return;
