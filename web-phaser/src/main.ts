@@ -477,7 +477,6 @@ class GameScene extends Phaser.Scene {
     }
     for (const item of this.worldItems) if (item instanceof Phaser.GameObjects.Image && item.getData('worldX') !== undefined)
       item.x = item.getData('worldX') - this.offset;
-    this.updateTileSampling();
     this.water.forEach(image => image.setFrame(this.waterFrame));
     this.bigClouds.forEach((image, i) => image.x = i * 896 - Math.trunc(this.offset * 0.3));
     this.smallClouds.forEach((image, i) => image.x = i * 592 - Math.trunc(this.offset * 0.7));
@@ -487,6 +486,7 @@ class GameScene extends Phaser.Scene {
       .setFrame(this.animation.state * 8 + this.animation.index).setFlipX(this.player.flip === -1);
     this.updateBars();
     this.renderObjects();
+    this.updateTileSampling();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
     for (const effect of this.dialogue.items) {
       let image = this.dialogueImages.get(effect);
@@ -626,6 +626,7 @@ class GameScene extends Phaser.Scene {
         const key = object.type <= 1 ? 'potions' : object.type <= 3 ? 'containers' : object.type === 4 ? 'trap_atlas' : 'cannon';
         image = this.image(0, 0, key, object.type === 4 ? undefined : 0).setScale(2).setDepth(objectDrawDepth(object.type));
         this.objectImages.set(object, image);
+        if (object.type === 4) this.tileSamplingKey = '';
       }
       image.setVisible(object.active);
       if (object.type <= 1) image.setPosition(Math.trunc(Math.fround(Math.fround(object.box.x - 6) - this.offset)), Math.trunc(Math.fround(object.box.y - 4)))
@@ -692,6 +693,21 @@ class GameScene extends Phaser.Scene {
         if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
       }
       item.setFrame(frameKey);
+    }
+    const spikes = this.textures.get('trap_atlas');
+    for (const [object, image] of this.objectImages) {
+      if (!('type' in object) || object.type !== 4) continue;
+      const bx = biased(image.x, offsetX, size.width, columns);
+      const by = biased(image.y, offsetY, size.height, rows);
+      if (!bx && !by) { image.setFrame('__BASE'); continue; }
+      const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
+      if (!spikes.has(frameKey)) {
+        const copy = spikes.add(frameKey, 0, 0, 0, 32, 32);
+        if (!copy) continue;
+        if (bx) { copy.u0 -= 0.00384 / 32; copy.u1 -= 0.00384 / 32; }
+        if (by) { copy.v0 -= 0.00384 / 32; copy.v1 -= 0.00384 / 32; }
+      }
+      image.setFrame(frameKey);
     }
     if (!this.statusBar?.scene) return;
     const bx = shouldBiasImageAxis(20, offsetX, size.width, zoom, 192, 58);

@@ -14,6 +14,8 @@ test('tile bias is limited to safe boundaries', () => {
   strictEqual(shouldBiasImageAxis(1500, 0, 832, 0.5), false);
   strictEqual(shouldBiasImageAxis(20, 0, 600, zoom, 192, 58), true);
   strictEqual(shouldBiasImageAxis(20, 288, 900, zoom, 58, 192), true);
+  strictEqual(shouldBiasImageAxis(1088, 0, 600, zoom), true);
+  strictEqual(shouldBiasImageAxis(704, 288, 900, zoom), true);
 });
 
 test('tile pixel sampling matches Java across scales, offsets and clipped edges', () => {
