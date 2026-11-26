@@ -410,13 +410,14 @@ class GameScene extends Phaser.Scene {
         : tile === 49 ? this.image(x * 64, y * 64, 'water') : this.image(x * 64, y * 64, 'tiles', tile);
       image.setDisplaySize(64, 64).setDepth(10);
       image.setData('worldX', x * 64);
-      if (tile !== 48 && tile !== 49) image.setData('tileFrame', tile);
+      if (tile !== 48 && tile !== 49) image.setData('samplingFrame', tile);
       this.worldItems.push(image);
       if (tile === 48) this.water.push(image);
     }));
     for (const grass of this.level.grass) {
       const image = this.image(grass.x, grass.y, 'grass', grass.type).setScale(2).setDepth(25);
       image.setData('worldX', grass.x);
+      image.setData('samplingFrame', grass.type);
       this.worldItems.push(image);
     }
     let levelEnemies = this.enemyLevels.get(this.levelIndex);
@@ -674,18 +675,18 @@ class GameScene extends Phaser.Scene {
       if (!cache.has(position)) cache.set(position, shouldBiasImageAxis(position, offset, screenSize, zoom));
       return cache.get(position)!;
     };
-    const texture = this.textures.get('tiles');
     for (const item of this.worldItems) {
       if (!(item instanceof Phaser.GameObjects.Image)) continue;
-      const tile = item.getData('tileFrame') as number | undefined;
-      if (tile === undefined) continue;
+      const frameNumber = item.getData('samplingFrame') as number | undefined;
+      if (frameNumber === undefined) continue;
       const bx = biased(item.getData('worldX') - this.offset, offsetX, size.width, columns);
       const by = biased(item.y, offsetY, size.height, rows);
-      if (!bx && !by) { item.setFrame(tile); continue; }
-      // shortcut: adjusts only safe tile boundaries; other sprite sampling still differs from Java.
-      const frameKey = `java-bias-${tile}-${Number(bx)}-${Number(by)}`;
+      if (!bx && !by) { item.setFrame(frameNumber); continue; }
+      // shortcut: adjusts only safe boundaries; other sprite sampling still differs from Java.
+      const texture = item.texture;
+      const frameKey = `java-bias-${frameNumber}-${Number(bx)}-${Number(by)}`;
       if (!texture.has(frameKey)) {
-        const frame = texture.get(tile);
+        const frame = texture.get(frameNumber);
         const copy = texture.add(frameKey, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
         if (!copy) continue;
         const source = texture.source[0];
