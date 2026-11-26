@@ -150,7 +150,7 @@ class GameScene extends Phaser.Scene {
       if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
       this.updateTreeEdges();
       this.updateTileSampling();
-    this.updatePlayerSampling();
+      this.updatePlayerSampling();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -658,6 +658,22 @@ class GameScene extends Phaser.Scene {
     const offsetY = Math.round(-camera.scrollY * zoom);
     for (const tree of this.trees) {
       if (!tree.edge) continue;
+      const image = tree.image, texture = image.texture, frame = texture.get(tree.frame), source = texture.source[0];
+      const offsetX = Math.round(-camera.scrollX * zoom), size = this.scale.gameSize;
+      const bx = !image.flipX && shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height);
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width);
+      if (!bx && !by) image.setFrame(tree.frame);
+      else {
+        const key = `java-tree-${tree.frame}-${Number(bx)}-${Number(by)}`;
+        if (!texture.has(key)) {
+          const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+          if (copy) {
+            if (bx) { copy.u0 -= 0.00384 / source.width; copy.u1 -= 0.00384 / source.width; }
+            if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
+          }
+        }
+        image.setFrame(key);
+      }
       // shortcut: corrects tree top edges only; other sprite sampling still differs from Java.
       const y = spriteTopEdge(tree.image.y, zoom, offsetY);
       tree.edge.setVisible(y !== undefined);
