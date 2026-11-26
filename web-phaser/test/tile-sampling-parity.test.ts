@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { javaImageSample, shouldBiasImageAxis } from '../src/imageSampling.ts';
+import { javaImageSample, shouldBiasImageAxis, shouldRaiseImageAxis } from '../src/imageSampling.ts';
 
 test('tile bias is limited to safe boundaries', () => {
   const zoom = 600 / 1664;
@@ -136,4 +136,23 @@ test('flipped tree sprites use the mirrored Java sampling positions', () => {
     }
     strictEqual(shouldBiasImageAxis(362, 0, 864, 864 / 1664, 62, 54), true);
   } finally { rmSync(output, { recursive: true, force: true }); }
+});
+
+
+test('positive status bar bias is applied only when Java samples the higher pixel', () => {
+  strictEqual(shouldRaiseImageAxis(20, 340, 900, 408 / 1664, 58, 192), true);
+  strictEqual(shouldRaiseImageAxis(20, 340, 900, 832 / 1664, 58, 192), false);
+  let checked = 0;
+  for (let width = 350; width < 1500; width++) for (const offset of [0, 20, 217, 288, 340]) {
+    const zoom = width / 1664;
+    if (!shouldRaiseImageAxis(20, offset, 900, zoom, 58, 192)) continue;
+    checked++;
+    const start = offset + 20 * zoom;
+    for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(900, Math.ceil(start + 116 * zoom)); pixel++) {
+      const source = (pixel + 0.5 - start) / (2 * zoom);
+      if (source >= 0 && source < 58)
+        strictEqual(Math.floor(source + 0.00384), javaImageSample(pixel, 20, offset, zoom, 58, 192), `${width},${offset},${pixel}`);
+    }
+  }
+  ok(checked > 20);
 });

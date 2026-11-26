@@ -7,7 +7,7 @@ import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from
 import { DialogueEffects, type DialogueEffect, Rain } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
 import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, spriteTopEdge, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
-import { shouldBiasImageAxis } from './imageSampling.ts';
+import { shouldBiasImageAxis, shouldRaiseImageAxis } from './imageSampling.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -777,15 +777,15 @@ class GameScene extends Phaser.Scene {
     if (this.statusBar?.scene) images.push(this.statusBar);
     for (const image of images) {
       const texture = image.texture, source = texture.source[0], width = source.width, height = source.height;
-      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height);
-      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width);
+      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : image === this.statusBar && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : image === this.statusBar && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
       if (!bx && !by) { image.setFrame('__BASE'); continue; }
       const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
       if (!texture.has(frameKey)) {
         const copy = texture.add(frameKey, 0, 0, 0, width, height);
         if (!copy) continue;
-        if (bx) { copy.u0 -= 0.00384 / width; copy.u1 -= 0.00384 / width; }
-        if (by) { copy.v0 -= 0.00384 / height; copy.v1 -= 0.00384 / height; }
+        if (bx) { copy.u0 += bx * 0.00384 / width; copy.u1 += bx * 0.00384 / width; }
+        if (by) { copy.v0 += by * 0.00384 / height; copy.v1 += by * 0.00384 / height; }
       }
       image.setFrame(frameKey);
     }
