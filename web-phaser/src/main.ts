@@ -150,6 +150,7 @@ class GameScene extends Phaser.Scene {
       if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
       this.updateTreeEdges();
       this.updateTileSampling();
+    this.updatePlayerSampling();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -488,6 +489,7 @@ class GameScene extends Phaser.Scene {
     this.updateBars();
     this.renderObjects();
     this.updateTileSampling();
+    this.updatePlayerSampling();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
     for (const effect of this.dialogue.items) {
       let image = this.dialogueImages.get(effect);
@@ -662,6 +664,27 @@ class GameScene extends Phaser.Scene {
       if (y !== undefined) tree.edge.setPosition(tree.image.x, y).setScale(2, 1 / zoom)
         .setFrame(tree.frame).setFlipX(tree.type === 9).setCrop(0, 0, tree.image.width, 1);
     }
+  }
+
+
+  private updatePlayerSampling(): void {
+    const image = this.playerImage;
+    if (!image?.scene || !this.animation) return;
+    const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
+    const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
+    const number = this.animation.state * 8 + this.animation.index;
+    const texture = image.texture, frame = texture.get(number), source = texture.source[0];
+    const bx = !image.flipX && shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height);
+    const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width);
+    if (!bx && !by) { image.setFrame(number); return; }
+    const key = `java-player-${number}-${Number(bx)}-${Number(by)}`;
+    if (!texture.has(key)) {
+      const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+      if (!copy) return;
+      if (bx) { copy.u0 -= 0.00384 / source.width; copy.u1 -= 0.00384 / source.width; }
+      if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
+    }
+    image.setFrame(key);
   }
 
   private updateTileSampling(): void {
