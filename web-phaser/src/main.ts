@@ -150,6 +150,7 @@ class GameScene extends Phaser.Scene {
       this.updatePlayerSampling();
       this.updateShipSampling();
       this.updateEnemySampling();
+      this.updateObjectSampling();
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -486,6 +487,7 @@ class GameScene extends Phaser.Scene {
       .setFrame(this.animation.state * 8 + this.animation.index).setFlipX(this.player.flip === -1);
     this.updateBars();
     this.renderObjects();
+    this.updateObjectSampling();
     this.updateTileSampling();
     this.updatePlayerSampling();
     this.updateShipSampling();
@@ -679,6 +681,28 @@ class GameScene extends Phaser.Scene {
   }
 
 
+
+
+  private updateObjectSampling(): void {
+    const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
+    const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
+    for (const [object, image] of this.objectImages) {
+      if (!('type' in object) || object.type < 2 || object.type === 4 || !image.visible) continue;
+      const number = object.type <= 3 ? (object.type === 2 ? 8 : 0) + object.index : object.index;
+      const texture = image.texture, frame = texture.get(number), source = texture.source[0];
+      const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? -1 : shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? 1 : 0;
+      const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? -1 : shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? 1 : 0;
+      if (!bx && !by) { image.setFrame(number); continue; }
+      const key = `java-object-${number}-${bx}-${by}-${Number(image.flipX)}`;
+      if (!texture.has(key)) {
+        const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+        if (!copy) continue;
+        if (bx) { copy.u0 += (image.flipX ? -bx : bx) * 0.00384 / source.width; copy.u1 += (image.flipX ? -bx : bx) * 0.00384 / source.width; }
+        if (by) { copy.v0 += by * 0.00384 / source.height; copy.v1 += by * 0.00384 / source.height; }
+      }
+      image.setFrame(key);
+    }
+  }
 
   private updateEnemySampling(): void {
     const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;

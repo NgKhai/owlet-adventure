@@ -208,3 +208,20 @@ test('ship sprite sampling matches Java across scales and clipping', () => {
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+
+test('cannon and container sprite sampling matches Java', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-object-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ObjectSamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'ObjectSamplingOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, ox, oy, sw, sh, x, y, px, py, sample] = line.split(',').map(Number);
+      const zoom = width / 1664;
+      strictEqual(javaImageSample(px, x, ox, zoom, sw, sh), sample >> 8, line);
+      strictEqual(javaImageSample(py, y, oy, zoom, sh, sw), sample & 255, line);
+    }
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});
