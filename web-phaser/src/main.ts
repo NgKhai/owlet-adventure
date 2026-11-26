@@ -151,6 +151,7 @@ class GameScene extends Phaser.Scene {
       this.updateTreeEdges();
       this.updateTileSampling();
       this.updatePlayerSampling();
+      this.updateShipSampling();
       this.updateEnemySampling();
     };
     this.scale.on('resize', resizeCamera);
@@ -490,6 +491,7 @@ class GameScene extends Phaser.Scene {
     this.renderObjects();
     this.updateTileSampling();
     this.updatePlayerSampling();
+    this.updateShipSampling();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
     for (const effect of this.dialogue.items) {
       let image = this.dialogueImages.get(effect);
@@ -704,6 +706,26 @@ class GameScene extends Phaser.Scene {
       }
       image.setFrame(key);
     }
+  }
+
+
+  private updateShipSampling(): void {
+    const image = this.ship;
+    if (!image?.scene || !image.visible) return;
+    const camera = this.cameras.main, zoom = camera.zoom, size = this.scale.gameSize;
+    const offsetX = Math.round(-camera.scrollX * zoom), offsetY = Math.round(-camera.scrollY * zoom);
+    const texture = image.texture, frame = texture.get(this.shipFrame), source = texture.source[0];
+    const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? -1 : shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, frame.width, frame.height) ? 1 : 0;
+    const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? -1 : shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, frame.height, frame.width) ? 1 : 0;
+    if (!bx && !by) { image.setFrame(this.shipFrame); return; }
+    const key = `java-ship-${this.shipFrame}-${bx}-${by}`;
+    if (!texture.has(key)) {
+      const copy = texture.add(key, 0, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight);
+      if (!copy) return;
+      if (bx) { copy.u0 += bx * 0.00384 / source.width; copy.u1 += bx * 0.00384 / source.width; }
+      if (by) { copy.v0 += by * 0.00384 / source.height; copy.v1 += by * 0.00384 / source.height; }
+    }
+    image.setFrame(key);
   }
 
   private updatePlayerSampling(): void {

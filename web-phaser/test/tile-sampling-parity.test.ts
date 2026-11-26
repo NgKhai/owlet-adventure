@@ -191,3 +191,20 @@ test('positive enemy bias preserves Java sprite samples across positions and sca
     }
   ok(checked > 0);
 });
+
+
+test('ship sprite sampling matches Java across scales and clipping', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-ship-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'ShipSamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'ShipSamplingOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, ox, oy, sw, sh, x, y, px, py, sample] = line.split(',').map(Number);
+      const zoom = width / 1664;
+      strictEqual(javaImageSample(px, x, ox, zoom, sw, sh), sample >> 8, line);
+      strictEqual(javaImageSample(py, y, oy, zoom, sh, sw), sample & 255, line);
+    }
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});
