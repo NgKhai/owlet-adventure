@@ -433,6 +433,8 @@ class GameScene extends Phaser.Scene {
     this.ship = this.image(200, 576, 'ship', 0).setScale(2).setDepth(2).setVisible(this.drawShip);
     this.worldItems.push(...this.bigClouds, ...this.smallClouds, this.ship);
     this.level.tiles.forEach((row, y) => row.forEach((tile, x) => {
+      // Tile 11 is fully transparent; omit interior empty tiles to avoid sampling adjacent atlas frames.
+      if (tile === 11 && (row[x - 1] ?? 11) === 11 && (row[x + 1] ?? 11) === 11) return;
       const image = tile === 48 ? this.image(x * 64, y * 64, 'waterTop', 0)
         : tile === 49 ? this.image(x * 64, y * 64, 'water') : this.image(x * 64, y * 64, 'tiles', tile);
       image.setDisplaySize(64, 64).setDepth(10);

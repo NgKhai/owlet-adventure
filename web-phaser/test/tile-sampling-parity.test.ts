@@ -387,3 +387,13 @@ test('overlay button sampling matches Java across scales', () => {
     }
   } finally { rmSync(output, { recursive: true, force: true }); }
 });
+
+
+test('the omitted empty tile is fully transparent in the original atlas', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-transparent-tile-'));
+  try {
+    const directory = dirname(fileURLToPath(import.meta.url));
+    execFileSync('javac', ['-d', output, join(directory, 'fixtures', 'TransparentTileOracle.java')], { stdio: 'pipe' });
+    execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'TransparentTileOracle', join(directory, '..', 'assets', 'outside_sprites.png')], { stdio: 'pipe' });
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});
