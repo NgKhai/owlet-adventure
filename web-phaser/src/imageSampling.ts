@@ -64,3 +64,30 @@ export function shouldRaiseImageAxis(logical: number, offset: number, screenSize
   }
   return needed;
 }
+
+
+export type ImageAxisSplit = { cut: number; before: -1 | 1; after: -1 | 1 };
+
+export function splitImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize = 32): ImageAxisSplit | undefined {
+  const start = offset + logical * zoom;
+  const first = Math.max(0, Math.floor(start));
+  const last = Math.min(screenSize, Math.ceil(start + sourceSize * 2 * zoom));
+  const ties: { index: number; bias: -1 | 1 }[] = [];
+  for (let pixel = first; pixel < last; pixel++) {
+    const exact = (pixel + 0.5 - start) / (2 * zoom), nearest = Math.round(exact), delta = exact - nearest;
+    if (Math.abs(exact) < 0.005 || Math.abs(exact - sourceSize) < 0.005) return undefined;
+    if (nearest <= 0 || nearest >= sourceSize) continue;
+    if (Math.abs(delta) < 1e-7) {
+      const sample = javaImageSample(pixel, logical, offset, zoom, sourceSize, sourceSize);
+      if (sample !== nearest && sample !== nearest - 1) return undefined;
+      ties.push({ index: nearest, bias: sample === nearest ? 1 : -1 });
+    } else if (Math.abs(delta) < 0.005) return undefined;
+  }
+  const change = ties.findIndex(tie => tie.bias !== ties[0].bias);
+  if (change <= 0 || ties.some((tie, i) => i >= change && tie.bias !== ties[change].bias)) return undefined;
+  const cut = Math.floor((ties[change - 1].index + ties[change].index) / 2);
+  if (cut <= 0 || cut >= sourceSize) return undefined;
+  const seam = start + cut * 2 * zoom;
+  if (Math.abs(seam - Math.floor(seam) - 0.5) < 0.005) return undefined;
+  return { cut, before: ties[0].bias, after: ties[change].bias };
+}

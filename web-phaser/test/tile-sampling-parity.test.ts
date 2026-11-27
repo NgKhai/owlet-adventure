@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { javaImageSample, shouldBiasImageAxis, shouldRaiseImageAxis } from '../src/imageSampling.ts';
+import { javaImageSample, shouldBiasImageAxis, shouldRaiseImageAxis, splitImageAxis } from '../src/imageSampling.ts';
 
 test('tile bias is limited to safe boundaries', () => {
   const zoom = 600 / 1664;
@@ -325,4 +325,26 @@ test('player right-edge correction keeps Java sampling positions', () => {
     }
   }
   ok(checked > 0);
+});
+
+
+test('split tiles preserve Java samples on both sides of conflicting boundaries', () => {
+  const split = splitImageAxis(960, 0, 800, 800 / 1664);
+  ok(split);
+  strictEqual(split.before, 1);
+  strictEqual(split.after, -1);
+  let checked = 0;
+  for (let width = 350; width < 1500; width++) for (const position of [-100, 0, 128, 448, 960, 1400]) for (const offset of [0, 84, 288]) {
+    const zoom = width / 1664, plan = splitImageAxis(position, offset, 900, zoom);
+    if (!plan) continue;
+    checked++;
+    const start = offset + position * zoom;
+    for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(900, Math.ceil(start + 64 * zoom)); pixel++) {
+      const source = (pixel + 0.5 - start) / (2 * zoom);
+      if (source < 0 || source >= 32) continue;
+      const bias: number = source < plan.cut ? plan.before : plan.after;
+      strictEqual(Math.floor(source + bias * 0.00384), javaImageSample(pixel, position, offset, zoom), `${width},${position},${offset},${pixel}`);
+    }
+  }
+  ok(checked > 20);
 });

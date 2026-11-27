@@ -7,7 +7,7 @@ import { ObjectManager, objectDrawDepth, type GameObject, type Projectile } from
 import { DialogueEffects, type DialogueEffect, Rain, ShipMotion } from './effects.ts';
 import { Player, type PlayerHooks } from './player.ts';
 import { MouseClicks, cameraOffset, canHandleClick, canHandleKey, centerOffset, containsRect, gameCoordinate, javaFillRect, spriteTopEdge, updatePlaying, type PlayingOverlay, type PlayingSteps } from './playing.ts';
-import { shouldBiasImageAxis, shouldRaiseImageAxis } from './imageSampling.ts';
+import { shouldBiasImageAxis, shouldRaiseImageAxis, splitImageAxis } from './imageSampling.ts';
 
 const WIDTH = 1664;
 const HEIGHT = 896;
@@ -33,6 +33,7 @@ class GameScene extends Phaser.Scene {
   private waterFrame = 0;
   private offset = 0;
   private tileSamplingKey = '';
+  private tilePieces = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image[]>();
   private accumulated = 0;
   private lastFrameTime?: number;
   private enemies: { enemy: Enemy; image: Phaser.GameObjects.Image }[] = [];
@@ -625,6 +626,8 @@ class GameScene extends Phaser.Scene {
   private clearPlaying(): void {
     for (const item of this.overlayItems) item.destroy();
     for (const item of this.worldItems) item.destroy();
+    for (const pieces of this.tilePieces.values()) for (const piece of pieces) piece.destroy();
+    this.tilePieces.clear();
     for (const image of this.objectImages.values()) image.destroy();
     for (const tree of this.trees) { tree.image.destroy(); tree.edge?.destroy(); }
     for (const image of this.rainImages) image.destroy();
@@ -809,12 +812,44 @@ class GameScene extends Phaser.Scene {
       if (!cache.has(position)) cache.set(position, shouldRaiseImageAxis(position, offset, screenSize, zoom, 32, 32));
       return cache.get(position)!;
     };
+    const splitColumns = new Map<number, ReturnType<typeof splitImageAxis>>();
+    const splitRows = new Map<number, ReturnType<typeof splitImageAxis>>();
+    const splitAt = (position: number, offset: number, screenSize: number, cache: Map<number, ReturnType<typeof splitImageAxis>>) => {
+      if (!cache.has(position)) cache.set(position, splitImageAxis(position, offset, screenSize, zoom));
+      return cache.get(position);
+    };
     for (const item of this.worldItems) {
       if (!(item instanceof Phaser.GameObjects.Image)) continue;
       const frameNumber = item.texture.key === 'waterTop' ? this.waterFrame : item.getData('samplingFrame') as number | string | undefined;
       if (frameNumber === undefined) continue;
       const bx = biased(item.getData('worldX') - this.offset, offsetX, size.width, columns) ? -1 : raised(item.getData('worldX') - this.offset, offsetX, size.width, raisedColumns) ? 1 : 0;
       const by = biased(item.y, offsetY, size.height, rows) ? -1 : raised(item.y, offsetY, size.height, raisedRows) ? 1 : 0;
+      const splitX = bx ? undefined : splitAt(item.x, offsetX, size.width, splitColumns);
+      const splitY = by ? undefined : splitAt(item.y, offsetY, size.height, splitRows);
+      const split = splitX && !splitY ? splitX : splitY && !splitX ? splitY : undefined;
+      const horizontal = !!splitX && !splitY;
+      let pieces = this.tilePieces.get(item);
+      if (split) {
+        if (!pieces) {
+          pieces = [this.image(item.x, item.y, item.texture.key), this.image(item.x, item.y, item.texture.key)];
+          this.tilePieces.set(item, pieces);
+        }
+        const texture = item.texture, source = texture.source[0];
+        for (let i = 0; i < 2; i++) {
+          const piece = pieces[i], start = i ? split.cut : 0, extent = i ? 32 - split.cut : split.cut;
+          piece.setTexture(texture.key, frameNumber).setPosition(item.x, item.y).setDisplaySize(64, 64).setDepth(item.depth).setVisible(true);
+          if (horizontal) piece.setCrop(start, 0, extent, 32); else piece.setCrop(0, start, 32, extent);
+          // Phaser computes cropped UVs independently from frame UVs.
+          const crop = (piece as unknown as { _crop: { u0: number; u1: number; v0: number; v1: number } })._crop;
+          const dx = (horizontal ? (i ? split.after : split.before) : bx) * 0.00384 / source.width;
+          const dy = (horizontal ? by : (i ? split.after : split.before)) * 0.00384 / source.height;
+          crop.u0 += dx; crop.u1 += dx; crop.v0 += dy; crop.v1 += dy;
+        }
+        item.setFrame(frameNumber).setVisible(false);
+        continue;
+      }
+      if (pieces) for (const piece of pieces) piece.setVisible(false);
+      item.setVisible(true);
       if (!bx && !by) { item.setFrame(frameNumber); continue; }
       // shortcut: adjusts only safe boundaries; other sprite sampling still differs from Java.
       const texture = item.texture;
