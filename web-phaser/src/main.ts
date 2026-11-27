@@ -34,6 +34,8 @@ class GameScene extends Phaser.Scene {
   private offset = 0;
   private tileSamplingKey = '';
   private waterEdgeKey = '';
+  private waterHorizontalEdgeKey = '';
+  private waterHorizontalEdges = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image>();
   private tileEdgeKey = '';
   private tileEdges = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image>();
   private waterEdges = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image>();
@@ -153,6 +155,7 @@ class GameScene extends Phaser.Scene {
       this.updateTreeEdges();
       this.updateTileSampling();
       this.updateWaterEdges();
+      this.updateWaterHorizontalEdges();
       this.updateTileEdges();
       this.updatePlayerSampling();
       this.updateShipSampling();
@@ -416,6 +419,7 @@ class GameScene extends Phaser.Scene {
     this.mode = 'playing';
     this.tileSamplingKey = '';
     this.waterEdgeKey = '';
+    this.waterHorizontalEdgeKey = '';
     this.tileEdgeKey = '';
     const source = this.textures.get(`level${this.levelIndex + 1}`).getSourceImage() as HTMLImageElement;
     const canvas = document.createElement('canvas');
@@ -526,6 +530,7 @@ class GameScene extends Phaser.Scene {
     this.updateObjectSampling();
     this.updateTileSampling();
     this.updateWaterEdges();
+    this.updateWaterHorizontalEdges();
     this.updateTileEdges();
     this.updatePlayerSampling();
     this.updateShipSampling();
@@ -641,6 +646,8 @@ class GameScene extends Phaser.Scene {
     for (const item of this.worldItems) item.destroy();
     for (const piece of this.tileEdges.values()) piece.destroy();
     this.tileEdges.clear();
+    for (const piece of this.waterHorizontalEdges.values()) piece.destroy();
+    this.waterHorizontalEdges.clear();
     for (const piece of this.waterEdges.values()) piece.destroy();
     this.waterEdges.clear();
     for (const pieces of this.tilePieces.values()) for (const piece of pieces) piece.destroy();
@@ -829,6 +836,27 @@ class GameScene extends Phaser.Scene {
         if (!edge) { edge = this.image(0, 0, texture.key); this.tileEdges.set(item, edge); }
         edge.setTexture(texture.key, raw.name).setPosition((Math.floor(end) - offsetX) / zoom - 31 / zoom, item.y)
           .setScale(1 / zoom, 2).setDepth(item.depth + 0.0002).setVisible(true).setCrop(31, 0, 1, 32);
+        const crop = (edge as unknown as { _crop: { v0: number; v1: number } })._crop;
+        crop.v0 += frame.v0 - raw.v0; crop.v1 += frame.v0 - raw.v0;
+      } else edge?.setVisible(false);
+    }
+  }
+
+
+  private updateWaterHorizontalEdges(): void {
+    if (this.waterHorizontalEdgeKey === this.tileSamplingKey) return;
+    this.waterHorizontalEdgeKey = this.tileSamplingKey;
+    const camera = this.cameras.main, zoom = camera.zoom, offsetX = Math.round(-camera.scrollX * zoom);
+    for (const item of this.worldItems) {
+      if (!(item instanceof Phaser.GameObjects.Image) || (item.texture.key !== 'water' && item.texture.key !== 'waterTop')) continue;
+      const column = item.getData('worldX') / 64, row = item.y / 64;
+      const end = (item.x + 64) * zoom + offsetX, type = item.texture.key === 'water' ? 49 : 48;
+      let edge = this.waterHorizontalEdges.get(item);
+      if (item.visible && this.level.tiles[row]?.[column + 1] === type && Math.abs(end - Math.floor(end) - 0.5) < 1e-8) {
+        const texture = item.texture, raw = texture.get(type === 49 ? '__BASE' : this.waterFrame), frame = item.frame;
+        if (!edge) { edge = this.image(0, 0, texture.key); this.waterHorizontalEdges.set(item, edge); }
+        edge.setTexture(texture.key, raw.name).setPosition((Math.floor(end) - offsetX) / zoom - 31 / zoom, item.y)
+          .setScale(1 / zoom, 2).setDepth(item.depth + 0.0001).setVisible(true).setCrop(31, 0, 1, 32);
         const crop = (edge as unknown as { _crop: { v0: number; v1: number } })._crop;
         crop.v0 += frame.v0 - raw.v0; crop.v1 += frame.v0 - raw.v0;
       } else edge?.setVisible(false);
