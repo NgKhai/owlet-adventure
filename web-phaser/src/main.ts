@@ -33,6 +33,8 @@ class GameScene extends Phaser.Scene {
   private waterFrame = 0;
   private offset = 0;
   private tileSamplingKey = '';
+  private waterEdgeKey = '';
+  private waterEdges = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image>();
   private tilePieces = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image[]>();
   private accumulated = 0;
   private lastFrameTime?: number;
@@ -148,6 +150,7 @@ class GameScene extends Phaser.Scene {
       if (this.healthBar?.scene && this.powerBar?.scene && this.character) this.updateBars();
       this.updateTreeEdges();
       this.updateTileSampling();
+      this.updateWaterEdges();
       this.updatePlayerSampling();
       this.updateShipSampling();
       this.updateEnemySampling();
@@ -409,6 +412,7 @@ class GameScene extends Phaser.Scene {
     this.clearMenuItems();
     this.mode = 'playing';
     this.tileSamplingKey = '';
+    this.waterEdgeKey = '';
     const source = this.textures.get(`level${this.levelIndex + 1}`).getSourceImage() as HTMLImageElement;
     const canvas = document.createElement('canvas');
     canvas.width = source.width; canvas.height = source.height;
@@ -517,6 +521,7 @@ class GameScene extends Phaser.Scene {
     this.renderObjects();
     this.updateObjectSampling();
     this.updateTileSampling();
+    this.updateWaterEdges();
     this.updatePlayerSampling();
     this.updateShipSampling();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
@@ -629,6 +634,8 @@ class GameScene extends Phaser.Scene {
   private clearPlaying(): void {
     for (const item of this.overlayItems) item.destroy();
     for (const item of this.worldItems) item.destroy();
+    for (const piece of this.waterEdges.values()) piece.destroy();
+    this.waterEdges.clear();
     for (const pieces of this.tilePieces.values()) for (const piece of pieces) piece.destroy();
     this.tilePieces.clear();
     for (const image of this.objectImages.values()) image.destroy();
@@ -797,6 +804,38 @@ class GameScene extends Phaser.Scene {
       if (by) { copy.v0 -= 0.00384 / source.height; copy.v1 -= 0.00384 / source.height; }
     }
     image.setFrame(key);
+  }
+
+
+  private updateWaterEdges(): void {
+    if (this.waterEdgeKey === this.tileSamplingKey) return;
+    this.waterEdgeKey = this.tileSamplingKey;
+    const camera = this.cameras.main, zoom = camera.zoom;
+    const offsetY = Math.round(-camera.scrollY * zoom);
+    const tied = (position: number) => Math.abs(position - Math.floor(position) - 0.5) < 1e-8;
+    for (const item of this.worldItems) {
+      if (!(item instanceof Phaser.GameObjects.Image) || item.texture.key !== 'water') continue;
+      const column = item.getData('worldX') / 64, row = item.y / 64;
+      const upper = row > 0 && this.level.tiles[row - 1]?.[column] === 49;
+      const lower = this.level.tiles[row + 1]?.[column] === 49;
+      const start = item.y * zoom + offsetY, end = (item.y + 64) * zoom + offsetY;
+      const raw = item.texture.get('__BASE'), frame = item.frame;
+      if (item.visible && upper && tied(start)) {
+        item.setCrop(0, 0.01, 32, 31.99);
+        const crop = (item as unknown as { _crop: { u0: number; u1: number; v0: number; v1: number } })._crop;
+        crop.u0 += frame.u0 - raw.u0; crop.u1 += frame.u0 - raw.u0;
+        crop.v0 += frame.v0 - raw.v0; crop.v1 += frame.v0 - raw.v0;
+      } else item.setCrop();
+      let edge = this.waterEdges.get(item);
+      if (item.visible && lower && tied(end)) {
+        if (!edge) { edge = this.image(0, 0, 'water'); this.waterEdges.set(item, edge); }
+        edge.setPosition(item.x, (Math.floor(end) - offsetY) / zoom - 31 / zoom)
+          .setScale(2, 1 / zoom).setDepth(item.depth + 0.0002).setFrame('__BASE').setVisible(true).setCrop(0, 31, 32, 1);
+        const crop = (edge as unknown as { _crop: { u0: number; u1: number; v0: number; v1: number } })._crop;
+        crop.u0 += frame.u0 - raw.u0; crop.u1 += frame.u0 - raw.u0;
+        crop.v0 += frame.v0 - raw.v0; crop.v1 += frame.v0 - raw.v0;
+      } else edge?.setVisible(false);
+    }
   }
 
   private updateTileSampling(): void {
