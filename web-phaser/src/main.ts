@@ -152,7 +152,7 @@ class GameScene extends Phaser.Scene {
       this.updateShipSampling();
       this.updateEnemySampling();
       this.updateObjectSampling();
-      for (const item of this.menuItems) if (item instanceof Phaser.GameObjects.Image && item.getData('menuFrame') !== undefined) this.setMenuButtonFrame(item, item.getData('menuFrame'));
+      for (const item of [...this.menuItems, ...this.overlayItems]) if (item instanceof Phaser.GameObjects.Image && item.getData('menuFrame') !== undefined) this.setMenuButtonFrame(item, item.getData('menuFrame'));
     };
     this.scale.on('resize', resizeCamera);
     this.events.once('shutdown', () => this.scale.off('resize', resizeCamera));
@@ -322,10 +322,11 @@ class GameScene extends Phaser.Scene {
     const id = `${this.mode}:${this.overlay}:${key}:${row}:${x}:${y}`;
     let pressed = this.buttonPressed.get(id) ?? false;
     const button = this.interactive(this.image(x, y, key, row * 3 + (pressed ? 2 : this.buttonHover.get(id) ? 1 : 0)).setScale(2).setDepth(depth));
+    this.setMenuButtonFrame(button, row * 3 + (pressed ? 2 : this.buttonHover.get(id) ? 1 : 0));
     const move = (x: number, y: number) => {
       const over = containsRect(button.getBounds(), Math.trunc(x), Math.trunc(y));
       this.buttonHover.set(id, over);
-      button.setFrame(row * 3 + (pressed ? 2 : over ? 1 : 0));
+      this.setMenuButtonFrame(button, row * 3 + (pressed ? 2 : over ? 1 : 0));
     };
     const movePointer = (pointer: Phaser.Input.Pointer) => {
       const { x, y } = this.gamePoint(pointer);
@@ -333,9 +334,9 @@ class GameScene extends Phaser.Scene {
     };
     this.input.on('pointermove', movePointer);
     button.once('destroy', () => this.input.off('pointermove', movePointer));
-    const reset = () => { pressed = false; this.buttonPressed.set(id, false); this.buttonHover.set(id, false); button.setFrame(row * 3); };
+    const reset = () => { pressed = false; this.buttonPressed.set(id, false); this.buttonHover.set(id, false); this.setMenuButtonFrame(button, row * 3); };
     this.resetOnPointerUp(button, reset);
-    button.on('pointerdown', () => { pressed = true; this.buttonPressed.set(id, true); button.setFrame(row * 3 + 2); });
+    button.on('pointerdown', () => { pressed = true; this.buttonPressed.set(id, true); this.setMenuButtonFrame(button, row * 3 + 2); });
     button.on('pointerup', () => { if (pressed) { reset(); action(); } });
     target.push(button);
   }

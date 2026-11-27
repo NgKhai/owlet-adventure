@@ -371,3 +371,19 @@ test('split clouds preserve Java samples at conflicting boundaries', () => {
     }
   ok(checked > 0);
 });
+
+
+test('overlay button sampling matches Java across scales', () => {
+  const output = mkdtempSync(join(tmpdir(), 'owlet-ui-button-sampling-'));
+  try {
+    const fixture = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'UiButtonSamplingOracle.java');
+    execFileSync('javac', ['-d', output, fixture], { stdio: 'pipe' });
+    const lines = execFileSync('java', ['-Djava.awt.headless=true', '-cp', output, 'UiButtonSamplingOracle'], { encoding: 'utf8' }).trim().split(/\r?\n/);
+    ok(lines.length > 1000);
+    for (const line of lines) {
+      const [width, ox, oy, sw, sh, x, y, px, py, sample] = line.split(',').map(Number), zoom = width / 1664;
+      strictEqual(javaImageSample(px, x, ox, zoom, sw, sh), sample >> 8, line);
+      strictEqual(javaImageSample(py, y, oy, zoom, sh, sw), sample & 255, line);
+    }
+  } finally { rmSync(output, { recursive: true, force: true }); }
+});
