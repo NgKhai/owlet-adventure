@@ -425,8 +425,8 @@ class GameScene extends Phaser.Scene {
     if (existingObjects) this.objects.reset();
     else this.objectLevels.set(this.levelIndex, this.objects);
     this.worldItems.push(this.image(0, 0, 'playing_bg_img').setDisplaySize(WIDTH, HEIGHT));
-    for (let i = 0; i < 4; i++) this.bigClouds.push(this.image(i * 896, 408, 'big_clouds').setDisplaySize(896, 202));
-    for (let i = 0; i < 8; i++) this.smallClouds.push(this.image(592 * i, this.smallCloudPositions[i], 'small_clouds').setDisplaySize(148, 48));
+    for (let i = 0; i < 4; i++) this.bigClouds.push(this.image(i * 896, 408, 'big_clouds').setDisplaySize(896, 202).setDepth(0.001));
+    for (let i = 0; i < 8; i++) this.smallClouds.push(this.image(592 * i, this.smallCloudPositions[i], 'small_clouds').setDisplaySize(148, 48).setDepth(0.002));
     if (this.drawRain) for (let i = 0; i < this.rain.drops.length; i++)
       this.rainImages.push(this.image(0, 0, 'rain_particle').setDisplaySize(3, 12).setDepth(1));
     this.ship = this.image(200, 576, 'ship', 0).setScale(2).setDepth(2).setVisible(this.drawShip);
@@ -887,6 +887,31 @@ class GameScene extends Phaser.Scene {
       const texture = image.texture, source = texture.source[0], width = source.width, height = source.height;
       const bx = shouldBiasImageAxis(image.x, offsetX, size.width, zoom, width, height) ? -1 : (image === this.statusBar || ['background_menu', 'options_background', 'menu_background', 'pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.x, offsetX, size.width, zoom, width, height) ? 1 : 0;
       const by = shouldBiasImageAxis(image.y, offsetY, size.height, zoom, height, width) ? -1 : (image === this.statusBar || ['background_menu', 'options_background', 'menu_background', 'pause_menu', 'death_screen', 'completed_sprite', 'game_completed'].includes(image.texture.key)) && shouldRaiseImageAxis(image.y, offsetY, size.height, zoom, height, width) ? 1 : 0;
+      const cloud = image.texture.key === 'big_clouds' || image.texture.key === 'small_clouds';
+      const sx = cloud && !bx ? splitImageAxis(image.x, offsetX, size.width, zoom, width, height) : undefined;
+      const sy = cloud && !by ? splitImageAxis(image.y, offsetY, size.height, zoom, height, width) : undefined;
+      const split = sx && !sy ? sx : sy && !sx ? sy : undefined, horizontal = !!sx && !sy;
+      let pieces = this.tilePieces.get(image);
+      if (split) {
+        if (!pieces) {
+          pieces = [this.image(image.x, image.y, texture.key), this.image(image.x, image.y, texture.key)];
+          this.tilePieces.set(image, pieces);
+        }
+        for (let i = 0; i < 2; i++) {
+          const piece = pieces[i], start = i ? split.cut : 0;
+          const extent = i ? (horizontal ? width : height) - split.cut : split.cut;
+          piece.setTexture(texture.key).setPosition(image.x, image.y).setDisplaySize(width * 2, height * 2).setDepth(image.depth).setVisible(true);
+          if (horizontal) piece.setCrop(start, 0, extent, height); else piece.setCrop(0, start, width, extent);
+          const crop = (piece as unknown as { _crop: { u0: number; u1: number; v0: number; v1: number } })._crop;
+          const dx = (horizontal ? (i ? split.after : split.before) : bx) * 0.00384 / width;
+          const dy = (horizontal ? by : (i ? split.after : split.before)) * 0.00384 / height;
+          crop.u0 += dx; crop.u1 += dx; crop.v0 += dy; crop.v1 += dy;
+        }
+        image.setFrame('__BASE').setVisible(false);
+        continue;
+      }
+      if (pieces) for (const piece of pieces) piece.setVisible(false);
+      if (cloud) image.setVisible(true);
       if (!bx && !by) { image.setFrame('__BASE'); continue; }
       const frameKey = `java-bias-${Number(bx)}-${Number(by)}`;
       if (!texture.has(frameKey)) {

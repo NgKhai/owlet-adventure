@@ -68,7 +68,7 @@ export function shouldRaiseImageAxis(logical: number, offset: number, screenSize
 
 export type ImageAxisSplit = { cut: number; before: -1 | 1; after: -1 | 1 };
 
-export function splitImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize = 32): ImageAxisSplit | undefined {
+export function splitImageAxis(logical: number, offset: number, screenSize: number, zoom: number, sourceSize = 32, otherSize = sourceSize): ImageAxisSplit | undefined {
   const start = offset + logical * zoom;
   const first = Math.max(0, Math.floor(start));
   const last = Math.min(screenSize, Math.ceil(start + sourceSize * 2 * zoom));
@@ -78,7 +78,7 @@ export function splitImageAxis(logical: number, offset: number, screenSize: numb
     if (Math.abs(exact) < 0.005 || Math.abs(exact - sourceSize) < 0.005) return undefined;
     if (nearest <= 0 || nearest >= sourceSize) continue;
     if (Math.abs(delta) < 1e-7) {
-      const sample = javaImageSample(pixel, logical, offset, zoom, sourceSize, sourceSize);
+      const sample = javaImageSample(pixel, logical, offset, zoom, sourceSize, otherSize);
       if (sample !== nearest && sample !== nearest - 1) return undefined;
       ties.push({ index: nearest, bias: sample === nearest ? 1 : -1 });
     } else if (Math.abs(delta) < 0.005) return undefined;

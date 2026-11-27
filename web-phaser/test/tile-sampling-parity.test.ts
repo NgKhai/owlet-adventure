@@ -348,3 +348,26 @@ test('split tiles preserve Java samples on both sides of conflicting boundaries'
   }
   ok(checked > 20);
 });
+
+
+test('split clouds preserve Java samples at conflicting boundaries', () => {
+  const split = splitImageAxis(896, 0, 408, 408 / 1664, 448, 101);
+  ok(split);
+  strictEqual(split.before, 1);
+  strictEqual(split.after, -1);
+  let checked = 0;
+  for (const [size, other] of [[448, 101], [74, 24], [101, 448], [24, 74]])
+    for (let width = 350; width < 1500; width++) for (const position of [-50, 0, 200, 408, 592, 896]) {
+      const zoom = width / 1664, plan = splitImageAxis(position, 0, width, zoom, size, other);
+      if (!plan) continue;
+      checked++;
+      const start = position * zoom;
+      for (let pixel = Math.max(0, Math.floor(start)); pixel < Math.min(width, Math.ceil(start + size * 2 * zoom)); pixel++) {
+        const source = (pixel + 0.5 - start) / (2 * zoom);
+        if (source < 0 || source >= size) continue;
+        const bias: number = source < plan.cut ? plan.before : plan.after;
+        strictEqual(Math.floor(source + bias * 0.00384), javaImageSample(pixel, position, 0, zoom, size, other), `${width},${position},${pixel}`);
+      }
+    }
+  ok(checked > 0);
+});
