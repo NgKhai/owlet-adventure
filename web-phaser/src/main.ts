@@ -34,6 +34,8 @@ class GameScene extends Phaser.Scene {
   private offset = 0;
   private tileSamplingKey = '';
   private waterEdgeKey = '';
+  private tileEdgeKey = '';
+  private tileEdges = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image>();
   private waterEdges = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image>();
   private tilePieces = new Map<Phaser.GameObjects.Image, Phaser.GameObjects.Image[]>();
   private accumulated = 0;
@@ -151,6 +153,7 @@ class GameScene extends Phaser.Scene {
       this.updateTreeEdges();
       this.updateTileSampling();
       this.updateWaterEdges();
+      this.updateTileEdges();
       this.updatePlayerSampling();
       this.updateShipSampling();
       this.updateEnemySampling();
@@ -413,6 +416,7 @@ class GameScene extends Phaser.Scene {
     this.mode = 'playing';
     this.tileSamplingKey = '';
     this.waterEdgeKey = '';
+    this.tileEdgeKey = '';
     const source = this.textures.get(`level${this.levelIndex + 1}`).getSourceImage() as HTMLImageElement;
     const canvas = document.createElement('canvas');
     canvas.width = source.width; canvas.height = source.height;
@@ -437,8 +441,8 @@ class GameScene extends Phaser.Scene {
     this.ship = this.image(200, 576, 'ship', 0).setScale(2).setDepth(2).setVisible(this.drawShip);
     this.worldItems.push(...this.bigClouds, ...this.smallClouds, this.ship);
     this.level.tiles.forEach((row, y) => row.forEach((tile, x) => {
-      // Tile 11 is fully transparent; omit interior empty tiles to avoid sampling adjacent atlas frames.
-      if (tile === 11 && (row[x - 1] ?? 11) === 11 && (row[x + 1] ?? 11) === 11) return;
+      // Tile 11 is fully transparent; omit it to avoid sampling adjacent atlas frames.
+      if (tile === 11) return;
       const image = tile === 48 ? this.image(x * 64, y * 64, 'waterTop', 0)
         : tile === 49 ? this.image(x * 64, y * 64, 'water') : this.image(x * 64, y * 64, 'tiles', tile);
       image.setDisplaySize(64, 64).setDepth(10);
@@ -522,6 +526,7 @@ class GameScene extends Phaser.Scene {
     this.updateObjectSampling();
     this.updateTileSampling();
     this.updateWaterEdges();
+    this.updateTileEdges();
     this.updatePlayerSampling();
     this.updateShipSampling();
     this.rainImages.forEach((image, i) => image.setPosition(Math.trunc(this.rain.drops[i].x) - this.offset, Math.trunc(this.rain.drops[i].y)));
@@ -634,6 +639,8 @@ class GameScene extends Phaser.Scene {
   private clearPlaying(): void {
     for (const item of this.overlayItems) item.destroy();
     for (const item of this.worldItems) item.destroy();
+    for (const piece of this.tileEdges.values()) piece.destroy();
+    this.tileEdges.clear();
     for (const piece of this.waterEdges.values()) piece.destroy();
     this.waterEdges.clear();
     for (const pieces of this.tilePieces.values()) for (const piece of pieces) piece.destroy();
@@ -806,6 +813,27 @@ class GameScene extends Phaser.Scene {
     image.setFrame(key);
   }
 
+
+
+  private updateTileEdges(): void {
+    if (this.tileEdgeKey === this.tileSamplingKey) return;
+    this.tileEdgeKey = this.tileSamplingKey;
+    const camera = this.cameras.main, zoom = camera.zoom, offsetX = Math.round(-camera.scrollX * zoom);
+    for (const item of this.worldItems) {
+      if (!(item instanceof Phaser.GameObjects.Image) || item.texture.key !== 'tiles') continue;
+      const column = item.getData('worldX') / 64, row = item.y / 64;
+      const end = (item.x + 64) * zoom + offsetX;
+      let edge = this.tileEdges.get(item);
+      if (item.visible && this.level.tiles[row]?.[column + 1] === 11 && Math.abs(end - Math.floor(end) - 0.5) < 1e-8) {
+        const texture = item.texture, raw = texture.get(item.getData('samplingFrame')), frame = item.frame;
+        if (!edge) { edge = this.image(0, 0, texture.key); this.tileEdges.set(item, edge); }
+        edge.setTexture(texture.key, raw.name).setPosition((Math.floor(end) - offsetX) / zoom - 31 / zoom, item.y)
+          .setScale(1 / zoom, 2).setDepth(item.depth + 0.0002).setVisible(true).setCrop(31, 0, 1, 32);
+        const crop = (edge as unknown as { _crop: { v0: number; v1: number } })._crop;
+        crop.v0 += frame.v0 - raw.v0; crop.v1 += frame.v0 - raw.v0;
+      } else edge?.setVisible(false);
+    }
+  }
 
   private updateWaterEdges(): void {
     if (this.waterEdgeKey === this.tileSamplingKey) return;
